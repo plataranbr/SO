@@ -21,20 +21,32 @@ Webapp stock opname untuk dipakai di lapangan (HP), berjalan penuh tanpa interne
 
 ## Pekerjaan rutin tiap bulan (Cost Control)
 
-1. Buka app → **Import Master Item (SOH)** → pilih unit, isi periode (contoh `2026-07`), pilih file Onhand VHP
+1. Buka app → **Menu Cost Control** → **Import Master Item dari file SOH** → pilih unit, pilih file Onhand VHP
    (`.txt` untuk VHP desktop, `.csv` untuk VHP cloud).
+   Periode terbaca otomatis dari isi file `.txt`. File `.csv` VHP cloud **tidak memuat tanggal**,
+   sehingga periode harus dipilih manual dan akan dimintakan konfirmasi.
 2. Periksa tabel hasil parsing yang muncul (jumlah item per kategori dan per store).
 3. Tekan **Buat File Master untuk Di-upload ke Server** → dihasilkan `<UNIT>.json`.
 4. Unggah file itu ke folder `master/` di repo (menimpa file bulan lalu).
-5. Beritahu tim untuk menekan **Ambil Master dari Server** saat masih ada sinyal.
+   Hanya unit yang ada di folder ini yang muncul di pilihan petugas.
 
 ## Pekerjaan petugas SO
 
 1. Buka link app **saat masih ada sinyal**. Disarankan: menu browser → *Tambahkan ke Layar Utama*.
-2. **Ambil Master dari Server** → pilih unit → Ambil & Simpan.
-3. **Mulai / Lanjutkan Stock Opname** → pilih unit dan store bagiannya → hitung.
-   Sejak titik ini app tidak butuh internet lagi.
-4. Selesai → **Download Excel (.xlsx)** dan **Download Semua Foto (.zip)** → kirim ke Cost Control.
+2. **Mulai Stock Opname** → pilih unit → daftar item terunduh otomatis → pilih store bagiannya → hitung.
+   Sejak daftar item terunduh, app tidak butuh internet lagi.
+3. Kalau app ditutup, layar awal menyediakan tombol **Lanjutkan** ke sesi terakhir.
+4. Selesai → **Download PDF** (laporan + tanda tangan + foto) dan **Download Excel (.xlsx)**
+   → kirim ke Cost Control.
+
+## Pengaman periode
+
+- Hasil hitung disimpan per **unit + periode + store**, sehingga data bulan lalu tidak pernah
+  tercampur ke bulan berjalan.
+- Layar awal menampilkan status kesiapan tiap unit beserta periodenya; periode yang bukan bulan
+  berjalan ditandai peringatan.
+- Bila Cost Control mengunggah master versi lebih baru, app menawarkan pembaruan saat unit dipilih
+  (perlu sinyal).
 
 ## Catatan penting
 

@@ -81,10 +81,9 @@ th{background:#eef2f7}
   </div>
   <div class="card">
     <h2>Mulai</h2>
-    <div class="note"><b>1)</b> Ambil master saat masih ada sinyal → <b>2)</b> pilih Unit &amp; Store →
-      <b>3)</b> hitung fisik (boleh tanpa sinyal) → <b>4)</b> export Excel.</div>
-    <button class="btn" onclick="go('scFetch')">1. Ambil Master dari Server</button>
-    <button class="btn btn-ok" id="btnStart" onclick="openPick()">2. Mulai / Lanjutkan Stock Opname</button>
+    <div class="note"><b>1)</b> Pilih Unit &amp; Store <b>saat masih ada sinyal</b> (daftar item terunduh otomatis) →
+      <b>2)</b> hitung fisik (boleh tanpa sinyal) → <b>3)</b> export Excel/PDF.</div>
+    <button class="btn btn-ok" id="btnStart" onclick="openPick()">Mulai Stock Opname</button>
     <div id="lastSesBox"></div>
     <div style="text-align:center;margin-top:14px">
       <a href="javascript:void(0)" onclick="toggleAdv()" id="advLink"
@@ -97,11 +96,12 @@ th{background:#eef2f7}
     <div class="note">Dipakai saat menyiapkan master bulanan, bukan saat menghitung di store.</div>
     <button class="btn btn2" onclick="go('scImport')">Import Master Item dari file SOH</button>
     <button class="btn btn2" onclick="exportMasterJson()">Buat File Master untuk Di-upload ke Server</button>
+    <button class="btn btn2" onclick="go('scFetch')">Perbarui / Ambil Ulang Master dari Server</button>
     <button class="btn btn2" onclick="go('scBackup')">Backup / Restore / Gabung Data</button>
     <button class="btn btn2" onclick="exportSelf()">Buat File HTML + Master (cadangan offline)</button>
   </div>
   <div class="card">
-    <h3>Master item tersimpan di HP/laptop ini</h3>
+    <h3>Kesiapan alat ini</h3>
     <div id="masterList" class="note">—</div>
   </div>
 </div>
@@ -117,11 +117,12 @@ th{background:#eef2f7}
     <label>Unit</label>
     <select id="impUnit"></select>
 
-    <label>Periode (bulan SOH)</label>
-    <input type="text" id="impPeriod" placeholder="contoh: 2026-07">
-
     <label>File SOH (.txt / .csv)</label>
-    <input type="file" id="impFile" accept=".txt,.csv,text/plain,text/csv">
+    <input type="file" id="impFile" accept=".txt,.csv,text/plain,text/csv" onchange="cekPeriode()">
+
+    <label>Periode (bulan SOH)</label>
+    <select id="impPeriod"></select>
+    <div id="periodInfo" class="note" style="margin-top:6px"></div>
 
     <button class="btn" onclick="doImport()">Proses &amp; Simpan Master</button>
     <div id="impResult" style="margin-top:12px"></div>
@@ -154,6 +155,7 @@ th{background:#eef2f7}
     <select id="pickUnit" onchange="fillStores()"></select>
     <label>Store / Area</label>
     <select id="pickStore"></select>
+    <div id="pickInfo" style="margin-top:8px"></div>
     <label>Nama Petugas (opsional, muncul di file export)</label>
     <input type="text" id="pickUser" placeholder="contoh: Ans">
     <button class="btn btn-ok" onclick="startSession()">Mulai Hitung</button>
@@ -202,11 +204,11 @@ th{background:#eef2f7}
   <div class="card">
     <h2>Export</h2>
     <div id="priceWarn"></div>
-    <label>Nama Petugas SO</label>
-    <input type="text" id="sgPetugas" placeholder="yang menghitung">
-    <label>Nama User / Kepala Store</label>
-    <input type="text" id="sgUser" placeholder="pemilik store">
-    <label>Nama Cost Control</label>
+    <label>Petugas</label>
+    <input type="text" id="sgPetugas" placeholder="yang melakukan stock opname">
+    <label>User</label>
+    <input type="text" id="sgUser" placeholder="pemilik / penanggung jawab store">
+    <label>Cost Control</label>
     <input type="text" id="sgCC" placeholder="pemeriksa">
     <button class="btn" onclick="exportPdf()">Download PDF (laporan + tanda tangan + foto)</button>
     <button class="btn" onclick="exportXlsx()">Download Excel (.xlsx)</button>
@@ -413,7 +415,7 @@ function all(store){ return new Promise(function(res,rej){ var out=[], r=tx(stor
    BLOK 5 : STATE APLIKASI
    ===================================================================== */
 var S = { unit:null, store:null, user:'', period:'', master:[], items:[], counts:{}, photos:{},
-          grup:'ALL', sec:'ALL', mode:0, limit:60, cross:true, allItems:[], metaCross:{}, crossList:[] };
+          grup:'ALL', sec:'ALL', mode:0, limit:60, cross:true, serverUnits:null, allItems:[], metaCross:{}, crossList:[] };
 
 function go(id){
   ['scHome','scImport','scFetch','scPick','scMain','scDone','scBackup'].forEach(function(x){
@@ -447,6 +449,48 @@ function ctxCheck(){
 /* =====================================================================
    BLOK 6 : IMPORT MASTER
    ===================================================================== */
+var BULAN=['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+function periodLabel(p){ var a=p.split('-'); return BULAN[parseInt(a[1],10)-1]+' '+a[0]; }
+function periodNow(){ var d=new Date(); return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+function periodPrev(){ var d=new Date(); d.setDate(1); d.setMonth(d.getMonth()-1);
+  return d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2); }
+/* Daftar 18 bulan terakhir; default bulan yang baru berakhir (SO biasanya untuk bulan itu). */
+function fillPeriods(){
+  var sel=document.getElementById('impPeriod'), d=new Date(); d.setDate(1);
+  var h='';
+  for(var i=0;i<18;i++){
+    var p=d.getFullYear()+'-'+('0'+(d.getMonth()+1)).slice(-2);
+    h+='<option value="'+p+'">'+periodLabel(p)+'</option>';
+    d.setMonth(d.getMonth()-1);
+  }
+  sel.innerHTML=h; sel.value=periodPrev();
+}
+/* Periode diambil dari isi file bila tersedia.
+   File txt VHP memuat baris "For Date : 31/07/26".
+   File csv VHP cloud TIDAK memuat periode sama sekali -> harus dipilih manual. */
+function detectPeriod(text){
+  var m=/For Date\s*:\s*(\d{2})\/(\d{2})\/(\d{2})/.exec(text);
+  if(!m) return null;
+  return '20'+m[3]+'-'+m[2];
+}
+function cekPeriode(){
+  var f=document.getElementById('impFile').files[0];
+  var info=document.getElementById('periodInfo');
+  if(!f){ info.innerHTML=''; return; }
+  var rd=new FileReader();
+  rd.onload=function(){
+    var p=detectPeriod(String(rd.result).substring(0,4000));
+    if(p){
+      document.getElementById('impPeriod').value=p;
+      info.innerHTML='<div class="ok">Periode terbaca dari isi file: <b>'+periodLabel(p)+'</b>. '+
+        'Ubah hanya bila memang salah.</div>';
+    } else {
+      info.innerHTML='<div class="warn">File ini (VHP cloud) tidak memuat tanggal periode. '+
+        '<b>Pastikan pilihan periode di atas benar</b> — tidak ada yang bisa memeriksanya selain Anda.</div>';
+    }
+  };
+  rd.readAsText(f.slice(0,20000), 'ISO-8859-1');
+}
 function fillUnitSelects(){
   var h = UNITS.map(function(u){ return '<option>'+u+'</option>'; }).join('');
   document.getElementById('impUnit').innerHTML = h;
@@ -458,9 +502,18 @@ function doImport(){
   var f = document.getElementById('impFile').files[0];
   var box = document.getElementById('impResult');
   if(!f){ box.innerHTML='<div class="err">File belum dipilih.</div>'; return; }
-  if(!period){ box.innerHTML='<div class="err">Periode belum diisi (contoh: 2026-07).</div>'; return; }
+  if(!period){ box.innerHTML='<div class="err">Periode belum dipilih.</div>'; return; }
   var rd = new FileReader();
   rd.onload = function(){
+    var terbaca = detectPeriod(String(rd.result).substring(0,4000));
+    if(terbaca && terbaca!==period){
+      if(!confirm('Isi file menunjukkan periode '+periodLabel(terbaca)+', tetapi Anda memilih '+
+        periodLabel(period)+'.\n\nLanjutkan dengan '+periodLabel(period)+'?')) return;
+    }
+    if(!terbaca){
+      if(!confirm('File ini tidak memuat tanggal periode.\n\nSimpan master '+unit+' sebagai periode '+
+        periodLabel(period)+'?')) return;
+    }
     var items;
     try{ items = parseSOH(f.name, rd.result); }
     catch(e){ box.innerHTML='<div class="err">Gagal membaca file: '+e.message+'</div>'; return; }
@@ -519,36 +572,113 @@ function resumeLast(){
 function refreshHome(){
   refreshLastSession();
   all('master').then(function(ms){
-    if(!ms.length){ document.getElementById('masterList').innerHTML='Belum ada. Lakukan Import dulu.'; return; }
-    var h='<table><tr><th>Unit</th><th>Periode</th><th>Item</th></tr>';
-    ms.forEach(function(m){ h+='<tr><td><b>'+m.unit+'</b></td><td>'+m.period+'</td><td>'+m.items.length+'</td></tr>'; });
-    document.getElementById('masterList').innerHTML=h+'</table>';
+    var box=document.getElementById('masterList');
+    if(!ms.length){
+      box.innerHTML='<div class="warn">Belum ada daftar item di alat ini. Tekan <b>Mulai Stock Opname</b> '+
+        'dan pilih unit <b>saat masih ada sinyal</b> — daftar item akan terunduh otomatis.</div>';
+      return;
+    }
+    var h='';
+    ms.forEach(function(m){
+      var lama = (m.period !== periodPrev() && m.period !== periodNow());
+      h += '<div style="padding:6px 0;border-bottom:1px solid #eef2f7">'+
+           (lama?'⚠️ ':'✅ ')+'<b>'+m.unit+'</b> — periode <b>'+periodLabel(m.period)+'</b>, '+
+           m.items.length+' item'+(lama?'<br><span style="color:#b3401a;font-size:12px">'+
+           'periode ini bukan bulan berjalan — pastikan sudah diperbarui Cost Control</span>':
+           '<br><span style="color:#0d8f4f;font-size:12px">siap dipakai tanpa internet</span>')+'</div>';
+    });
+    box.innerHTML=h;
   });
 }
 
 /* =====================================================================
    BLOK 7 : PILIH UNIT & STORE
    ===================================================================== */
+/* Daftar unit diambil dari SERVER: hanya unit yang masternya sudah diunggah
+   Cost Control yang muncul. Bila tidak ada sinyal, dipakai daftar yang sudah
+   tersimpan di alat ini. */
+function unitTersediaDiServer(){
+  if(location.protocol.indexOf('http')!==0) return Promise.resolve([]);
+  return Promise.all(UNITS.map(function(u){
+    return fetch('master/'+u+'.json', {method:'HEAD'})
+      .then(function(r){ return r.ok ? {unit:u, tag:(r.headers.get('ETag')||r.headers.get('Last-Modified')||'')} : null; })
+      .catch(function(){ return null; });
+  })).then(function(a){ return a.filter(Boolean); });
+}
 function openPick(){
-  all('master').then(function(ms){
-    if(!ms.length){ alert('Master item belum ada di alat ini.\n\nTekan "Ambil Master dari Server" (perlu sinyal), '+
-      'atau Cost Control melakukan "Import Master Item (SOH)".'); return; }
-    var sel=document.getElementById('pickUnit');
-    sel.innerHTML = ms.map(function(m){ return '<option>'+m.unit+'</option>'; }).join('');
-    fillStores(); go('scPick');
+  var sel=document.getElementById('pickUnit');
+  sel.innerHTML='<option>memeriksa server…</option>';
+  document.getElementById('pickStore').innerHTML='';
+  document.getElementById('pickInfo').innerHTML='';
+  go('scPick');
+  Promise.all([unitTersediaDiServer(), all('master')]).then(function(r){
+    S.serverUnits={}; r[0].forEach(function(x){ S.serverUnits[x.unit]=x.tag; });
+    var lokal={}; r[1].forEach(function(m){ lokal[m.unit]=m; });
+    var daftar=Object.keys(S.serverUnits);
+    Object.keys(lokal).forEach(function(u){ if(daftar.indexOf(u)<0) daftar.push(u); });
+    daftar.sort();
+    if(!daftar.length){
+      sel.innerHTML='<option>(tidak ada)</option>';
+      document.getElementById('pickInfo').innerHTML='<div class="err">Tidak ada daftar item yang bisa dipakai.<br>'+
+        'Bila sedang tanpa sinyal: sambungkan internet dulu. Bila ada sinyal: Cost Control belum mengunggah master unit mana pun.</div>';
+      return;
+    }
+    sel.innerHTML = daftar.map(function(u){
+      var ket = S.serverUnits[u]!==undefined ? '' : ' (tersimpan di alat ini)';
+      return '<option value="'+u+'">'+u+ket+'</option>';
+    }).join('');
+    fillStores();
+  });
+}
+/* Pastikan master unit tersedia: unduh bila belum ada, atau bila server lebih baru. */
+function pastikanMaster(unit){
+  var info=document.getElementById('pickInfo');
+  return get('master', unit).then(function(m){
+    var tagServer = S.serverUnits ? S.serverUnits[unit] : undefined;
+    if(m && (tagServer===undefined || !tagServer || m.tag===tagServer)) return m;
+    if(m && tagServer && m.tag!==tagServer){
+      if(!confirm('Cost Control sudah mengunggah daftar item '+unit+' versi lebih baru.\n\n'+
+                  'Perbarui sekarang? (perlu sinyal)')) return m;
+    }
+    info.innerHTML='<div class="note">Mengunduh daftar item '+unit+'…</div>';
+    return fetch('master/'+unit+'.json?t='+Date.now()).then(function(r){
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      return r.json();
+    }).then(function(o){
+      var baru=unpackMaster(o); baru.tag = tagServer||'';
+      return put('master', baru).then(function(){
+        info.innerHTML='<div class="ok">Daftar item '+unit+' periode <b>'+periodLabel(baru.period)+
+          '</b> siap ('+baru.items.length+' item). Mulai sini app bisa dipakai tanpa internet.</div>';
+        return baru;
+      });
+    }).catch(function(e){
+      if(m){ info.innerHTML='<div class="warn">Tidak bisa memperbarui dari server ('+e.message+'). '+
+        'Memakai daftar tersimpan periode <b>'+periodLabel(m.period)+'</b>.</div>'; return m; }
+      info.innerHTML='<div class="err">Gagal mengunduh daftar item '+unit+' ('+e.message+').<br>'+
+        'Lakukan saat ada sinyal, atau minta Cost Control mengunggah masternya.</div>';
+      return null;
+    });
   });
 }
 function fillStores(){
-  var u=document.getElementById('pickUnit').value;
-  get('master', u).then(function(m){
-    if(!m) return;
+  var u=document.getElementById('pickUnit').value.split(' ')[0];
+  var selStore=document.getElementById('pickStore');
+  selStore.innerHTML='<option>memuat…</option>';
+  pastikanMaster(u).then(function(m){
+    if(!m){ selStore.innerHTML='<option>(belum ada)</option>'; return; }
     var seen={}, opts=[];
     m.items.forEach(function(i){ if(!seen[i.store]){ seen[i.store]=1; opts.push(i.store); } });
-    document.getElementById('pickStore').innerHTML = opts.map(function(s){ return '<option>'+s+'</option>'; }).join('');
+    selStore.innerHTML = opts.map(function(s){ return '<option>'+s+'</option>'; }).join('');
+    /* peringatan bila periode master bukan bulan berjalan */
+    if(m.period!==periodPrev() && m.period!==periodNow()){
+      document.getElementById('pickInfo').innerHTML +=
+        '<div class="warn" style="margin-top:8px">⚠️ Daftar item ini periode <b>'+periodLabel(m.period)+
+        '</b>, bukan bulan berjalan. Pastikan Cost Control sudah mengunggah master terbaru sebelum menghitung.</div>';
+    }
   });
 }
 function startSession(){
-  S.unit  = document.getElementById('pickUnit').value;
+  S.unit  = document.getElementById('pickUnit').value.split(' ')[0];
   S.store = document.getElementById('pickStore').value;
   S.user  = document.getElementById('pickUser').value.trim();
   get('master', S.unit).then(function(m){
@@ -577,20 +707,22 @@ function startSession(){
     return loadCounts();
   }).then(function(){
     document.getElementById('sesLabel').textContent = S.unit + ' — ' + S.store;
-    document.getElementById('sesMeta').textContent  = 'Periode '+S.period+(S.user?' • '+S.user:'');
+    document.getElementById('sesMeta').innerHTML = 'Periode <b>'+periodLabel(S.period)+'</b>'+(S.user?' • '+esc(S.user):'');
     document.getElementById('hdrSub').textContent   = S.unit+' / '+S.store;
-    put('meta', {key:'lastSession', unit:S.unit, store:S.store, user:S.user, at:new Date().toISOString()});
+    put('meta', {key:'lastSession', unit:S.unit, period:S.period, store:S.store, user:S.user, at:new Date().toISOString()});
     buildChips(); S.limit=60; renderList(); go('scMain');
   });
 }
-function ck(art){ return S.unit+'|'+S.store+'|'+art; }
+/* Kunci data hitung WAJIB memuat periode, supaya hasil bulan lalu
+   tidak ikut terbawa saat master bulan baru dipasang. */
+function ck(art){ return S.unit+'|'+S.period+'|'+S.store+'|'+art; }
 function loadCounts(){
   S.counts={}; S.photos={};
   return all('counts').then(function(cs){
-    cs.forEach(function(c){ if(c.unit===S.unit && c.store===S.store) S.counts[c.art]=c; });
+    cs.forEach(function(c){ if(c.unit===S.unit && c.store===S.store && c.period===S.period) S.counts[c.art]=c; });
     return all('photos');
   }).then(function(ps){
-    ps.forEach(function(p){ if(p.unit===S.unit && p.store===S.store){ (S.photos[p.art]=S.photos[p.art]||[]).push(p); } });
+    ps.forEach(function(p){ if(p.unit===S.unit && p.store===S.store && p.period===S.period){ (S.photos[p.art]=S.photos[p.art]||[]).push(p); } });
   });
 }
 
@@ -714,7 +846,7 @@ function focusNext(art){
 function addQty(art, lanjut){
   var el=document.getElementById('in_'+art); var v=parseFloat(el.value);
   if(isNaN(v)){ el.focus(); return; }
-  var c = S.counts[art] || {key:ck(art), unit:S.unit, store:S.store, art:art, qty:0, n:0, note:'', user:S.user};
+  var c = S.counts[art] || {key:ck(art), unit:S.unit, period:S.period, store:S.store, art:art, qty:0, n:0, note:'', user:S.user};
   c.qty = Math.round((c.qty + v)*10000)/10000; c.n += 1; c.at = new Date().toISOString(); c.user=S.user;
   S.counts[art]=c; el.value='';
   put('counts', c);
@@ -727,7 +859,7 @@ function resetQty(art){
   del('counts', ck(art)).then(function(){ refreshRow(art); });
 }
 function setNote(art, val){
-  var c = S.counts[art] || {key:ck(art), unit:S.unit, store:S.store, art:art, qty:0, n:0, user:S.user};
+  var c = S.counts[art] || {key:ck(art), unit:S.unit, period:S.period, store:S.store, art:art, qty:0, n:0, user:S.user};
   c.note = val; S.counts[art]=c; put('counts', c);
 }
 
@@ -748,7 +880,7 @@ document.getElementById('camIn').addEventListener('change', function(e){
       cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
       var data=cv.toDataURL('image/jpeg', 0.78);
       var idx=(S.photos[art]||[]).length;
-      var rec={key:ck(art)+'|'+idx, unit:S.unit, store:S.store, art:art, idx:idx, data:data,
+      var rec={key:ck(art)+'|'+idx, unit:S.unit, period:S.period, store:S.store, art:art, idx:idx, data:data,
                w:cv.width, h:cv.height};
       (S.photos[art]=S.photos[art]||[]).push(rec);
       put('photos', rec).then(function(){
@@ -775,7 +907,7 @@ function finishCount(){
   rows.forEach(function(r){ tot+=r.amount; if(r.foto==='Y') nFoto++; if(Math.abs(r.selisih)>0.0001) nSelisih++; });
   document.getElementById('sumBox').innerHTML =
     '<table><tr><th>Unit / Store</th><td>'+S.unit+' / '+esc(S.store)+'</td></tr>'+
-    '<tr><th>Periode</th><td>'+S.period+'</td></tr>'+
+    '<tr><th>Periode</th><td><b>'+periodLabel(S.period)+'</b></td></tr>'+
     '<tr><th>Item terisi</th><td>'+rows.length+' dari '+S.items.length+'</td></tr>'+
     '<tr><th>Nilai SO fisik</th><td><b>Rp '+fmt(Math.round(tot))+'</b></td></tr>'+
     '<tr><th>Item selisih vs sistem</th><td>'+nSelisih+'</td></tr>'+
@@ -1119,7 +1251,7 @@ function buildPdf(rows, meta){
   function halamanTabel(k){
     var rs=pagesTbl[k], y=H-M, c='';
     c += T(M, y-4, 13, 'LAPORAN STOCK OPNAME', true); y-=18;
-    c += T(M, y-4, 9, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.period+
+    c += T(M, y-4, 9, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.periodLabel+
            '   |   Dicetak: '+meta.tanggal); y-=8;
     c += LINE(M, y, W-M, y, 1); y-=14;
     c += BOX(M, y-4, W-2*M, 14, 0.90);
@@ -1139,7 +1271,7 @@ function buildPdf(rows, meta){
   function halamanTtd(){
     var y=H-M, c='';
     c += T(M, y-4, 13, 'RINGKASAN & PENGESAHAN', true); y-=18;
-    c += T(M, y-4, 9, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.period); y-=8;
+    c += T(M, y-4, 9, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.periodLabel); y-=8;
     c += LINE(M, y, W-M, y, 1); y-=24;
     var info=[
       ['Jumlah item dihitung', String(rows.length)],
@@ -1153,9 +1285,9 @@ function buildPdf(rows, meta){
     });
     y-=30;
     var kolom=[
-      {t:'Dihitung oleh', n:meta.petugas, k:'Petugas Stock Opname'},
-      {t:'Diketahui oleh', n:meta.user,   k:'User / Kepala Store'},
-      {t:'Diperiksa oleh', n:meta.cc,     k:'Cost Control'}
+      {t:'Petugas',      n:meta.petugas},
+      {t:'User',         n:meta.user},
+      {t:'Cost Control', n:meta.cc}
     ];
     var lebar=(W-2*M)/3;
     kolom.forEach(function(kk, i){
@@ -1163,8 +1295,7 @@ function buildPdf(rows, meta){
       c += T(x, y, 9, kk.t, true);
       c += LINE(x, y-62, x+lebar-30, y-62, 0.6);
       c += T(x, y-74, 9, kk.n ? '( '+kk.n+' )' : '(                                  )');
-      c += T(x, y-86, 8, kk.k);
-      c += T(x, y-100, 8, 'Tanggal: ....... / ....... / ..........');
+      c += T(x, y-90, 8, 'Tanggal: ....... / ....... / ..........');
     });
     c += T(M, M-6, 7, 'Halaman '+(pagesTbl.length+1)+' dari '+nPages);
     return c;
@@ -1173,7 +1304,7 @@ function buildPdf(rows, meta){
   function halamanFoto(k){
     var ps=pagesPhoto[k], c='', y=H-M;
     c += T(M, y-4, 13, 'LAMPIRAN FOTO BUKTI', true); y-=18;
-    c += T(M, y-4, 9, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.period); y-=8;
+    c += T(M, y-4, 9, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.periodLabel); y-=8;
     c += LINE(M, y, W-M, y, 1);
     ps.forEach(function(p, i){
       var boxW=(W-2*M-24)/2, boxH=380;
@@ -1241,7 +1372,7 @@ function exportPdf(){
   if(!rows.length){ alert('Belum ada data untuk di-export.'); return; }
   rows.sort(function(a,b){ return a.art<b.art?-1:1; });
   var meta={
-    unit:S.unit, store:S.store, period:S.period,
+    unit:S.unit, store:S.store, period:S.period, periodLabel:periodLabel(S.period),
     tanggal:new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}),
     petugas:(document.getElementById('sgPetugas')||{}).value||S.user||'',
     user:(document.getElementById('sgUser')||{}).value||'',
@@ -1297,11 +1428,11 @@ function refreshStorage(){
 }
 function wipeSession(){
   if(!S.unit){ alert('Tidak ada sesi aktif.'); return; }
-  if(!confirm('Hapus SEMUA hasil hitung & foto untuk '+S.unit+' / '+S.store+'? Tidak bisa dibatalkan.')) return;
+  if(!confirm('Hapus SEMUA hasil hitung & foto untuk '+S.unit+' / '+S.store+' periode '+S.period+'? Tidak bisa dibatalkan.')) return;
   Promise.all([all('counts'), all('photos')]).then(function(r){
     var jobs=[];
-    r[0].forEach(function(c){ if(c.unit===S.unit&&c.store===S.store) jobs.push(del('counts', c.key)); });
-    r[1].forEach(function(p){ if(p.unit===S.unit&&p.store===S.store) jobs.push(del('photos', p.key)); });
+    r[0].forEach(function(c){ if(c.unit===S.unit&&c.store===S.store&&c.period===S.period) jobs.push(del('counts', c.key)); });
+    r[1].forEach(function(p){ if(p.unit===S.unit&&p.store===S.store&&p.period===S.period) jobs.push(del('photos', p.key)); });
     return Promise.all(jobs);
   }).then(function(){ S.counts={}; S.photos={}; refreshStorage(); alert('Data sesi dihapus.'); });
 }
@@ -1313,7 +1444,7 @@ function wipeSession(){
 if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
   navigator.serviceWorker.register('sw.js').catch(function(e){ console.log('SW gagal:', e); });
 }
-ctxCheck(); fillUnitSelects();
+ctxCheck(); fillUnitSelects(); fillPeriods();
 dbOpen().then(loadEmbedded).then(function(){ refreshHome(); }).catch(function(e){
   document.getElementById('ctxWarn').innerHTML =
     '<b>⚠️ Penyimpanan browser tidak bisa dibuka ('+e+').</b> Data hitung TIDAK akan tersimpan. '+
