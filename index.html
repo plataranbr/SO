@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Stock Opname - Plataran Indonesia</title>
+<title>Stock Opname - Plataran Boga Rasa</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#123a5e">
 <style>
@@ -79,7 +79,7 @@ th{background:#eef2f7}
 <body>
 
 <header>
-  <div class="ttl">Stock Opname — Plataran Indonesia</div>
+  <div class="ttl">Stock Opname — Plataran Boga Rasa</div>
   <div class="sub" id="hdrSub">Departemen Cost Control</div>
 </header>
 
@@ -290,11 +290,39 @@ var SELF_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
    BLOK 2 : DAFTAR UNIT  <-- UBAH DI SINI kalau ada unit baru/kode berubah
    Sumber: CONFIG project (CK FG Matrix)
    ===================================================================== */
-/* Sumber: sheet Config pada berkas CK FG Matrix (19 unit) ditambah CK sebagai
-   Central Kitchen. Kode di sini harus sama persis dengan Config agar penamaan
-   unit konsisten di seluruh laporan. */
-var UNITS = ["CK","PLD","PLS","PLMT","PATIO","TSMB","TSMS","TBXC","TPIM","TPI","TSD",
-             "TSBK","TKM","PGS","PLCS","PKJ","PLP","TD","RHJ","PATB"];
+/* =====================================================================
+   DAFTAR UNIT  <-- UBAH DI SINI bila ada unit baru atau perubahan nama.
+   Kode unit wajib sama persis dengan sheet Config pada berkas CK FG Matrix
+   agar penamaan konsisten di seluruh laporan.
+   ===================================================================== */
+var UNITS = [
+  {k:"CK",      n:"Central Kitchen"},
+  {k:"PLD",     n:"Plataran Dharmawangsa"},
+  {k:"PLS",     n:"Hutan Kota Plataran"},
+  {k:"PLMT",    n:"Plataran Menteng (termasuk Rumah Heritage Jakarta)"},
+  {k:"PLCS",    n:"Plataran Catering Service"},
+  {k:"PKJ",     n:"Plataran Kinandari Jakarta"},
+  {k:"PLSMM",   n:"Plataran Summarecon Mutiara Makassar"},
+  {k:"PGS",     n:"Plataran Bandung"},
+  {k:"PATIO",   n:"Patio (termasuk Patio Bakery)"},
+  {k:"TD",      n:"Teras Dharmawangsa"},
+  {k:"TPIM",    n:"Teras Pondok Indah Mall"},
+  {k:"TBXC",    n:"Teras Bintaro Exchange"},
+  {k:"TSMS",    n:"Teras Summarecon Serpong"},
+  {k:"TSMB",    n:"Teras Summarecon Bogor"},
+  {k:"TSUMABA", n:"Teras Summarecon Bandung"},
+  {k:"TSBK",    n:"Teras Summarecon Bekasi"},
+  {k:"TSD",     n:"Teras Sudirman"},
+  {k:"TPI",     n:"Teras Plaza Indonesia"},
+  {k:"TKM",     n:"Teras K Mall"},
+  {k:"TSMG",    n:"Teras Semarang"}
+];
+function kodeUnit(){ return UNITS.map(function(u){ return u.k; }); }
+function namaUnit(k){
+  for(var i=0;i<UNITS.length;i++) if(UNITS[i].k===k) return UNITS[i].n||'';
+  return '';
+}
+function labelUnit(k){ var n=namaUnit(k); return n ? k+' — '+n : k; }
 
 /* =====================================================================
    BLOK 3 : PARSER FILE SOH
@@ -527,7 +555,7 @@ function cekPeriode(){
   rd.readAsText(f.slice(0,20000), 'ISO-8859-1');
 }
 function fillUnitSelects(){
-  var h = UNITS.map(function(u){ return '<option>'+u+'</option>'; }).join('');
+  var h = UNITS.map(function(u){ return '<option value="'+u.k+'">'+labelUnit(u.k)+'</option>'; }).join('');
   document.getElementById('impUnit').innerHTML = h;
   document.getElementById('pickUnit').innerHTML = h;
 }
@@ -597,7 +625,7 @@ function resumeLast(){
     return get('master', ls.unit).then(function(m){
       if(!m){ alert('Master unit '+ls.unit+' tidak ada lagi di alat ini.'); return openPick(); }
       /* isi pilihan lalu jalankan sesi seperti biasa */
-      document.getElementById('pickUnit').innerHTML = '<option>'+ls.unit+'</option>';
+      document.getElementById('pickUnit').innerHTML = '<option value="'+ls.unit+'">'+labelUnit(ls.unit)+'</option>';
       document.getElementById('pickStore').innerHTML = '<option>'+ls.store+'</option>';
       document.getElementById('pickUser').value = ls.user||'';
       startSession();
@@ -617,7 +645,7 @@ function refreshHome(){
     ms.forEach(function(m){
       var lama = (m.period !== periodPrev() && m.period !== periodNow());
       h += '<div style="padding:6px 0;border-bottom:1px solid #eef2f7">'+
-           (lama?'⚠️ ':'✅ ')+'<b>'+m.unit+'</b> — periode <b>'+periodLabel(m.period)+'</b>, '+
+           (lama?'⚠️ ':'✅ ')+'<b>'+esc(labelUnit(m.unit))+'</b><br>periode <b>'+periodLabel(m.period)+'</b>, '+
            m.items.length+' item'+(lama?'<br><span style="color:#b3401a;font-size:12px">'+
            'Periode ini bukan bulan berjalan. Pastikan Cost Control telah memperbarui daftar item.</span>':
            '<br><span style="color:#0d8f4f;font-size:12px">Siap digunakan tanpa jaringan</span>')+'</div>';
@@ -634,7 +662,7 @@ function refreshHome(){
    tersimpan di alat ini. */
 function unitTersediaDiServer(){
   if(location.protocol.indexOf('http')!==0) return Promise.resolve([]);
-  return Promise.all(UNITS.map(function(u){
+  return Promise.all(kodeUnit().map(function(u){
     return fetch('master/'+u+'.json', {method:'HEAD'})
       .then(function(r){ return r.ok ? {unit:u, tag:(r.headers.get('ETag')||r.headers.get('Last-Modified')||'')} : null; })
       .catch(function(){ return null; });
@@ -659,8 +687,8 @@ function openPick(){
       return;
     }
     sel.innerHTML = daftar.map(function(u){
-      var ket = S.serverUnits[u]!==undefined ? '' : ' (tersimpan di alat ini)';
-      return '<option value="'+u+'">'+u+ket+'</option>';
+      var ket = S.serverUnits[u]!==undefined ? '' : ' (tersimpan di perangkat)';
+      return '<option value="'+u+'">'+labelUnit(u)+ket+'</option>';
     }).join('');
     fillStores();
   });
@@ -696,7 +724,7 @@ function pastikanMaster(unit){
   });
 }
 function fillStores(){
-  var u=document.getElementById('pickUnit').value.split(' ')[0];
+  var u=document.getElementById('pickUnit').value;
   var selStore=document.getElementById('pickStore');
   selStore.innerHTML='<option>memuat…</option>';
   pastikanMaster(u).then(function(m){
@@ -713,7 +741,7 @@ function fillStores(){
   });
 }
 function startSession(){
-  S.unit  = document.getElementById('pickUnit').value.split(' ')[0];
+  S.unit  = document.getElementById('pickUnit').value;
   S.store = document.getElementById('pickStore').value;
   S.user  = document.getElementById('pickUser').value.trim();
   get('master', S.unit).then(function(m){
@@ -741,7 +769,7 @@ function startSession(){
     });
     return loadCounts();
   }).then(function(){
-    document.getElementById('sesLabel').textContent = S.unit + ' — ' + S.store;
+    document.getElementById('sesLabel').textContent = labelUnit(S.unit) + ' — ' + S.store;
     document.getElementById('sesMeta').innerHTML = 'Periode <b>'+periodLabel(S.period)+'</b>'+(S.user?' • '+esc(S.user):'');
     document.getElementById('hdrSub').textContent   = S.unit+' / '+S.store;
     put('meta', {key:'lastSession', unit:S.unit, period:S.period, store:S.store, user:S.user, at:new Date().toISOString()});
@@ -949,7 +977,7 @@ function finishCount(){
   var rows=collect(), tot=0, nFoto=0, nSelisih=0;
   rows.forEach(function(r){ tot+=r.amount; if(r.foto==='Y') nFoto++; if(Math.abs(r.selisih)>0.0001) nSelisih++; });
   document.getElementById('sumBox').innerHTML =
-    '<table><tr><th>Unit / Store</th><td>'+S.unit+' / '+esc(S.store)+'</td></tr>'+
+    '<table><tr><th>Unit / Store</th><td>'+esc(labelUnit(S.unit))+' / '+esc(S.store)+'</td></tr>'+
     '<tr><th>Periode</th><td><b>'+periodLabel(S.period)+'</b></td></tr>'+
     '<tr><th>Item telah dihitung</th><td>'+rows.length+' dari '+S.items.length+'</td></tr>'+
     '<tr><th>Nilai persediaan fisik</th><td><b>Rp '+fmt(Math.round(tot))+'</b></td></tr>'+
@@ -1431,7 +1459,7 @@ function buildPdf(rows, meta){
       c += LINE(M, y-3.5, W-M, y-3.5, 0.2);
       y-=13;
     });
-    c += T(M, M-6, 7, 'Halaman '+(k+1)+' dari '+nPages+'  |  Diterbitkan melalui aplikasi Stock Opname Plataran Indonesia');
+    c += T(M, M-6, 7, 'Halaman '+(k+1)+' dari '+nPages+'  |  Diterbitkan melalui aplikasi Stock Opname Plataran Boga Rasa');
     return c;
   }
 
@@ -1569,7 +1597,7 @@ function pdfBlob(){
   if(!rows.length){ alert('Belum terdapat data yang dapat dilaporkan.'); return null; }
   rows.sort(function(a,b){ return a.art<b.art?-1:1; });
   var meta={
-    unit:S.unit, store:S.store, period:S.period, periodLabel:periodLabel(S.period),
+    unit:labelUnit(S.unit), store:S.store, period:S.period, periodLabel:periodLabel(S.period),
     tanggal:new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}),
     petugas:(document.getElementById('sgPetugas')||{}).value||S.user||'',
     user:(document.getElementById('sgUser')||{}).value||'',
