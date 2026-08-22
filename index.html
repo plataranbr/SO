@@ -63,6 +63,8 @@ th,td{border:1px solid #dde3ea;padding:6px;text-align:left}
 th{background:#eef2f7}
 .tag{display:inline-block;font-size:11px;padding:2px 6px;border-radius:4px;background:#e6ebf2;color:#48566b}
 .tag.fg{background:#f0e2ff;color:#5b2d8e}
+.sigpad{width:100%;height:120px;border:1px dashed #a9b4c2;border-radius:8px;background:#fff;
+        touch-action:none;display:block;margin-top:6px}
 </style>
 </head>
 <body>
@@ -204,12 +206,25 @@ th{background:#eef2f7}
   <div class="card">
     <h2>Export</h2>
     <div id="priceWarn"></div>
+    <div class="note">Isi nama, lalu bubuhkan tanda tangan langsung di layar (opsional).
+      Tanda tangan ikut tercetak di PDF.</div>
+
     <label>Petugas</label>
     <input type="text" id="sgPetugas" placeholder="yang melakukan stock opname">
+    <canvas id="cvPetugas" class="sigpad"></canvas>
+    <button class="btn2 btn-sm" onclick="clearSig('Petugas')">Hapus tanda tangan</button>
+
     <label>User</label>
     <input type="text" id="sgUser" placeholder="pemilik / penanggung jawab store">
+    <canvas id="cvUser" class="sigpad"></canvas>
+    <button class="btn2 btn-sm" onclick="clearSig('User')">Hapus tanda tangan</button>
+
     <label>Cost Control</label>
     <input type="text" id="sgCC" placeholder="pemeriksa">
+    <canvas id="cvCC" class="sigpad"></canvas>
+    <button class="btn2 btn-sm" onclick="clearSig('CC')">Hapus tanda tangan</button>
+    <button class="btn" onclick="previewPdf()">Lihat PDF dulu (preview)</button>
+    <div id="pdfPrev"></div>
     <button class="btn" onclick="exportPdf()">Download PDF (laporan + tanda tangan + foto)</button>
     <button class="btn" onclick="exportXlsx()">Download Excel (.xlsx)</button>
     <button class="btn btn2" onclick="exportPhotos()">Download Semua Foto (.zip)</button>
@@ -793,7 +808,7 @@ function renderList(){
        '<div id="nt_'+i.art+'" class="'+(adaNote?'':'hide')+'">'+
          '<input type="text" placeholder="catatan…" value="'+esc(c&&c.note?c.note:'')+
          '" onchange="setNote(\''+i.art+'\',this.value)" style="margin-top:6px;font-size:14px;padding:8px"></div>'+
-       '<div class="thumbs" id="th_'+i.art+'">'+thumbHtml(i.art)+'</div>'+
+       '<div class="thumbs" data-th="'+i.art+'">'+thumbHtml(i.art)+'</div>'+
        '</div>';
   }
   document.getElementById('list').innerHTML = h || '<div class="card note">Tidak ada item yang cocok.</div>';
@@ -883,19 +898,27 @@ document.getElementById('camIn').addEventListener('change', function(e){
       var rec={key:ck(art)+'|'+idx, unit:S.unit, period:S.period, store:S.store, art:art, idx:idx, data:data,
                w:cv.width, h:cv.height};
       (S.photos[art]=S.photos[art]||[]).push(rec);
-      put('photos', rec).then(function(){
-        var t=document.getElementById('th_'+art); if(t) t.innerHTML=thumbHtml(art);
-      });
+      put('photos', rec).then(function(){ gambarUlangThumb(art); });
     };
     img.src=rd.result;
   };
   rd.readAsDataURL(f);
 });
+/* Thumbnail item bisa tampil di dua tempat sekaligus (daftar utama dan layar
+   rekomendasi), jadi semuanya diperbarui, bukan hanya yang pertama ditemukan. */
+function gambarUlangThumb(art){
+  var els=document.querySelectorAll('[data-th="'+art+'"]');
+  for(var i=0;i<els.length;i++) els[i].innerHTML=thumbHtml(art);
+  var btn=document.querySelectorAll('[data-fotobtn="'+art+'"]');
+  for(var j=0;j<btn.length;j++){
+    btn[j].outerHTML = (S.photos[art]||[]).length ? '<div class="total">✔ sudah ada foto</div>' : btn[j].outerHTML;
+  }
+}
 function delPhoto(art, idx){
   var ps=S.photos[art]||[]; var rec=ps[idx]; if(!rec) return;
   del('photos', rec.key).then(function(){
     ps.splice(idx,1);
-    var t=document.getElementById('th_'+art); if(t) t.innerHTML=thumbHtml(art);
+    gambarUlangThumb(art);
   });
 }
 
@@ -914,6 +937,7 @@ function finishCount(){
     '<tr><th>Item berfoto</th><td>'+nFoto+'</td></tr>'+
     '<tr><th>Item dari store lain</th><td>'+rows.filter(function(r){return r.homeStore;}).length+'</td></tr></table>';
   var sp=document.getElementById('sgPetugas'); if(sp && !sp.value) sp.value = S.user||'';
+  setTimeout(initSigPads, 60);
   var tanpaHarga = rows.length && !rows.some(function(r){ return r.price>0; });
   document.getElementById('priceWarn').innerHTML = tanpaHarga ?
     '<div class="warn">Master dari server tidak memuat harga, jadi kolom <b>Price</b> dan <b>Amount</b> '+
@@ -926,8 +950,8 @@ function finishCount(){
       ' • nilai Rp '+fmt(Math.round(r.amount))+'</div>'+
       '<div class="meta" style="margin-top:4px">Alasan: '+r.why+'</div>'+
       (has?'<div class="total">✔ sudah ada foto</div>':
-        '<button class="btn2 btn-sm" style="margin-top:6px" onclick="takePhoto(\''+r.art+'\')">📷 Ambil foto sekarang</button>')+
-      '<div class="thumbs" id="th_'+r.art+'">'+thumbHtml(r.art)+'</div></div>';
+        '<button class="btn2 btn-sm" data-fotobtn="'+r.art+'" style="margin-top:6px" onclick="takePhoto(\''+r.art+'\')">📷 Ambil foto sekarang</button>')+
+      '<div class="thumbs" data-th="'+r.art+'">'+thumbHtml(r.art)+'</div></div>';
   }).join('') : '<div class="note">Belum ada data hitung.</div>';
   go('scDone');
 }
@@ -1155,6 +1179,59 @@ function loadEmbedded(){
 }
 
 /* =====================================================================
+   BLOK 10B2 : TANDA TANGAN DI LAYAR (e-sign)
+   Coretan disimpan sebagai gambar dan ikut dicetak di PDF.
+   ===================================================================== */
+var SIG={};                                   /* {Petugas:dataURL, User:…, CC:…} */
+function sigKey(){ return 'sign|'+S.unit+'|'+S.period+'|'+S.store; }
+function initSigPads(){
+  ['Petugas','User','CC'].forEach(function(nm){
+    var cv=document.getElementById('cv'+nm); if(!cv || cv.dataset.siap) return;
+    cv.dataset.siap='1';
+    var rect=cv.getBoundingClientRect();
+    cv.width = Math.max(300, Math.round(rect.width||320)); cv.height=120;
+    var g=cv.getContext('2d');
+    g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height);
+    g.lineWidth=2.2; g.lineCap='round'; g.strokeStyle='#111';
+    var nulis=false;
+    function pos(e){
+      var r=cv.getBoundingClientRect();
+      var t=(e.touches&&e.touches[0])||e;
+      return {x:(t.clientX-r.left)*cv.width/r.width, y:(t.clientY-r.top)*cv.height/r.height};
+    }
+    function mulai(e){ e.preventDefault(); nulis=true; var p=pos(e); g.beginPath(); g.moveTo(p.x,p.y); }
+    function gerak(e){ if(!nulis) return; e.preventDefault(); var p=pos(e); g.lineTo(p.x,p.y); g.stroke(); }
+    function henti(){ if(!nulis) return; nulis=false; simpanSig(nm); }
+    cv.addEventListener('mousedown',mulai); cv.addEventListener('mousemove',gerak);
+    window.addEventListener('mouseup',henti);
+    cv.addEventListener('touchstart',mulai,{passive:false});
+    cv.addEventListener('touchmove',gerak,{passive:false});
+    cv.addEventListener('touchend',henti);
+  });
+  /* muat tanda tangan yang pernah dibuat pada sesi ini */
+  get('meta', sigKey()).then(function(o){
+    if(!o) return;
+    SIG=o.sig||{};
+    ['Petugas','User','CC'].forEach(function(nm){
+      if(!SIG[nm]) return;
+      var cv=document.getElementById('cv'+nm); if(!cv) return;
+      var im=new Image(); im.onload=function(){ cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height); }; im.src=SIG[nm];
+    });
+  });
+}
+function simpanSig(nm){
+  var cv=document.getElementById('cv'+nm); if(!cv) return;
+  SIG[nm]=cv.toDataURL('image/jpeg',0.85);
+  put('meta', {key:sigKey(), sig:SIG});
+}
+function clearSig(nm){
+  var cv=document.getElementById('cv'+nm); if(!cv) return;
+  var g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height);
+  g.lineWidth=2.2; g.lineCap='round'; g.strokeStyle='#111';
+  delete SIG[nm]; put('meta', {key:sigKey(), sig:SIG});
+}
+
+/* =====================================================================
    BLOK 10C : PEMBUAT PDF (tanpa library luar)
    PDF ditulis manual: teks memakai font standar Helvetica, foto disisipkan
    apa adanya sebagai JPEG (PDF mendukung JPEG lewat filter DCTDecode),
@@ -1207,6 +1284,15 @@ function buildPdf(rows, meta){
     });
   });
 
+  /* --- gambar tanda tangan (bila ada) --- */
+  var signs=[];
+  ['Petugas','User','CC'].forEach(function(nm){
+    if(!SIG[nm]) return;
+    var b=b64ToU8(SIG[nm].split(',')[1]); var d=jpegSize(b);
+    signs.push({nama:nm, bytes:b, w:d.w, h:d.h});
+  });
+  var allImg = photos.concat(signs);
+
   /* --- bagi baris ke halaman --- */
   var perPage=30, pagesTbl=[];
   for(var i=0;i<rows.length;i+=perPage) pagesTbl.push(rows.slice(i,i+perPage));
@@ -1217,7 +1303,7 @@ function buildPdf(rows, meta){
 
   /* --- penomoran objek --- */
   var ID_CAT=1, ID_PAGES=2, ID_F=3, ID_FB=4, ID_IMG0=5;
-  var idContent0 = ID_IMG0 + photos.length;
+  var idContent0 = ID_IMG0 + allImg.length;
   function idContent(k){ return idContent0 + k*2; }
   function idPage(k){ return idContent0 + k*2 + 1; }
 
@@ -1226,7 +1312,10 @@ function buildPdf(rows, meta){
   function LINE(x1,y1,x2,y2,w){ return (w||0.5)+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S\n'; }
   function BOX(x,y,w,h,gray){ return (gray!=null?gray+' g ':'') + x+' '+y+' '+w+' '+h+' re f 0 g\n'; }
 
-  var COLS=[
+  /* Kolom "Store Asal" hanya dicetak bila memang ada item yang ditemukan di store
+     berbeda. Bila tidak ada, ruangnya dipakai untuk Description dan Catatan. */
+  var adaAsal = rows.some(function(r){ return r.homeStore; });
+  var COLS = adaAsal ? [
     {t:'No',            x:M,     w:22,  a:'l'},
     {t:'ArtNo',         x:M+24,  w:52,  a:'l'},
     {t:'Description',   x:M+80,  w:250, a:'l'},
@@ -1236,6 +1325,16 @@ function buildPdf(rows, meta){
     {t:'Selisih',       x:M+498, w:52,  a:'r'},
     {t:'Store Asal',    x:M+554, w:96,  a:'l'},
     {t:'Catatan',       x:M+654, w:130, a:'l'},
+    {t:'Foto',          x:M+788, w:26,  a:'l'}
+  ] : [
+    {t:'No',            x:M,     w:22,  a:'l'},
+    {t:'ArtNo',         x:M+24,  w:52,  a:'l'},
+    {t:'Description',   x:M+80,  w:320, a:'l'},
+    {t:'Unit',          x:M+404, w:40,  a:'l'},
+    {t:'Qty Fisik',     x:M+448, w:60,  a:'r'},
+    {t:'Qty Sistem',    x:M+512, w:64,  a:'r'},
+    {t:'Selisih',       x:M+580, w:56,  a:'r'},
+    {t:'Catatan',       x:M+644, w:140, a:'l'},
     {t:'Foto',          x:M+788, w:26,  a:'l'}
   ];
   function cellText(c, val){
@@ -1258,8 +1357,11 @@ function buildPdf(rows, meta){
     COLS.forEach(function(col){ var t=cellText(col, col.t); c += T(t.x, y, 8, t.s, true); });
     y-=16;
     rs.forEach(function(r, idx){
-      var v=[String(k*perPage+idx+1), r.art, r.desc, r.uom, fmt(r.qty), fmt(r.qtySys), fmt(r.selisih),
-             r.homeStore||'', r.note||'', r.foto];
+      var v = adaAsal
+        ? [String(k*perPage+idx+1), r.art, r.desc, r.uom, fmt(r.qty), fmt(r.qtySys), fmt(r.selisih),
+           r.homeStore||'', r.note||'', r.foto]
+        : [String(k*perPage+idx+1), r.art, r.desc, r.uom, fmt(r.qty), fmt(r.qtySys), fmt(r.selisih),
+           r.note||'', r.foto];
       COLS.forEach(function(col, ci){ var t=cellText(col, v[ci]); c += T(t.x, y, 8, t.s); });
       c += LINE(M, y-4, W-M, y-4, 0.2);
       y-=14;
@@ -1285,14 +1387,21 @@ function buildPdf(rows, meta){
     });
     y-=30;
     var kolom=[
-      {t:'Petugas',      n:meta.petugas},
-      {t:'User',         n:meta.user},
-      {t:'Cost Control', n:meta.cc}
+      {t:'Petugas',      n:meta.petugas, key:'Petugas'},
+      {t:'User',         n:meta.user,    key:'User'},
+      {t:'Cost Control', n:meta.cc,      key:'CC'}
     ];
     var lebar=(W-2*M)/3;
     kolom.forEach(function(kk, i){
       var x=M+i*lebar;
       c += T(x, y, 9, kk.t, true);
+      var sg = signs.filter(function(z){ return z.nama===kk.key; })[0];
+      if(sg){
+        var sw=Math.min(150, lebar-40), sh=sg.h*(sw/sg.w);
+        if(sh>52){ sh=52; sw=sg.w*(sh/sg.h); }
+        var si=photos.length + signs.indexOf(sg);
+        c += 'q '+sw.toFixed(2)+' 0 0 '+sh.toFixed(2)+' '+x.toFixed(2)+' '+(y-58).toFixed(2)+' cm /IM'+si+' Do Q\n';
+      }
       c += LINE(x, y-62, x+lebar-30, y-62, 0.6);
       c += T(x, y-74, 9, kk.n ? '( '+kk.n+' )' : '(                                  )');
       c += T(x, y-90, 8, 'Tanggal: ....... / ....... / ..........');
@@ -1327,7 +1436,7 @@ function buildPdf(rows, meta){
   objs[ID_PAGES] = lat1('<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+nPages+' >>');
   objs[ID_F]     = lat1('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
   objs[ID_FB]    = lat1('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
-  photos.forEach(function(p, i){
+  allImg.forEach(function(p, i){
     var head='<< /Type /XObject /Subtype /Image /Width '+p.w+' /Height '+p.h+
              ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+p.bytes.length+' >>\nstream\n';
     var a=lat1(head), b=lat1('\nendstream');
@@ -1342,7 +1451,11 @@ function buildPdf(rows, meta){
     else isi = halamanFoto(k - pagesTbl.length - 1);
     objs[idContent(k)] = lat1('<< /Length '+isi.length+' >>\nstream\n'+isi+'\nendstream');
     var xo='';
-    if(k > pagesTbl.length){
+    if(k === pagesTbl.length && signs.length){
+      xo = ' /XObject << ' + signs.map(function(g){
+        var gi=photos.length+signs.indexOf(g);
+        return '/IM'+gi+' '+(ID_IMG0+gi)+' 0 R'; }).join(' ') + ' >>';
+    } else if(k > pagesTbl.length){
       var ps=pagesPhoto[k-pagesTbl.length-1];
       xo = ' /XObject << ' + ps.map(function(p){ return '/IM'+photos.indexOf(p)+' '+(ID_IMG0+photos.indexOf(p))+' 0 R'; }).join(' ') + ' >>';
     }
@@ -1367,9 +1480,22 @@ function buildPdf(rows, meta){
   return new Blob(chunks, {type:'application/pdf'});
 }
 
-function exportPdf(){
+/* Preview: PDF dibuat lalu ditampilkan di layar. Sebagian browser HP tidak bisa
+   menampilkan PDF di dalam halaman; disediakan tombol buka di tab baru. */
+var PDFURL=null;
+function previewPdf(){
+  var blob=pdfBlob(); if(!blob) return;
+  if(PDFURL) URL.revokeObjectURL(PDFURL);
+  PDFURL=URL.createObjectURL(blob);
+  document.getElementById('pdfPrev').innerHTML =
+    '<div class="note" style="margin-top:8px">Periksa dulu isinya. Bila kosong/abu-abu di HP, '+
+    'tekan <b>Buka di tab baru</b>.</div>'+
+    '<iframe src="'+PDFURL+'" style="width:100%;height:420px;border:1px solid #c6ced9;border-radius:8px;margin-top:6px"></iframe>'+
+    '<button class="btn btn2" onclick="window.open(PDFURL,\'_blank\')">Buka di tab baru</button>';
+}
+function pdfBlob(){
   var rows=collect();
-  if(!rows.length){ alert('Belum ada data untuk di-export.'); return; }
+  if(!rows.length){ alert('Belum ada data untuk di-export.'); return null; }
   rows.sort(function(a,b){ return a.art<b.art?-1:1; });
   var meta={
     unit:S.unit, store:S.store, period:S.period, periodLabel:periodLabel(S.period),
@@ -1378,7 +1504,11 @@ function exportPdf(){
     user:(document.getElementById('sgUser')||{}).value||'',
     cc:(document.getElementById('sgCC')||{}).value||''
   };
-  dl(buildPdf(rows, meta), 'SO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.pdf');
+  return buildPdf(rows, meta);
+}
+function exportPdf(){
+  var b=pdfBlob(); if(!b) return;
+  dl(b, 'SO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.pdf');
 }
 
 /* =====================================================================
