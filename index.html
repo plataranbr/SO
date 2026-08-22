@@ -1236,10 +1236,38 @@ function clearSigBig(){
   sigCtx.fillStyle='#fff'; sigCtx.fillRect(0,0,cv.width,cv.height);
   sigCtx.lineWidth=3; sigCtx.lineCap='round'; sigCtx.lineJoin='round'; sigCtx.strokeStyle='#111';
 }
+/* Memangkas area putih di sekeliling coretan agar tanda tangan tercetak besar
+   dan proporsional pada laporan, bukan mengecil karena ruang kosong. */
+function pangkasSig(cv){
+  var g=cv.getContext('2d'), d;
+  try{ d=g.getImageData(0,0,cv.width,cv.height); }catch(e){ return cv.toDataURL('image/jpeg',0.85); }
+  var px=d.data, x1=cv.width, y1=cv.height, x2=0, y2=0, ada=false;
+  for(var y=0;y<cv.height;y++){
+    for(var x=0;x<cv.width;x++){
+      var i=(y*cv.width+x)*4;
+      if(px[i]<200 || px[i+1]<200 || px[i+2]<200){
+        ada=true;
+        if(x<x1)x1=x; if(x>x2)x2=x; if(y<y1)y1=y; if(y>y2)y2=y;
+      }
+    }
+  }
+  if(!ada) return null;
+  var pad=12;
+  x1=Math.max(0,x1-pad); y1=Math.max(0,y1-pad);
+  x2=Math.min(cv.width-1,x2+pad); y2=Math.min(cv.height-1,y2+pad);
+  var w=x2-x1+1, h=y2-y1+1;
+  var out=document.createElement('canvas'); out.width=w; out.height=h;
+  var og=out.getContext('2d');
+  og.fillStyle='#fff'; og.fillRect(0,0,w,h);
+  og.drawImage(cv, x1,y1,w,h, 0,0,w,h);
+  return out.toDataURL('image/jpeg',0.9);
+}
 function saveSig(){
   if(!sigAktif) return closeSig();
   var cv=document.getElementById('sigBig');
-  SIG[sigAktif]=cv.toDataURL('image/jpeg',0.85);
+  var hasil=pangkasSig(cv);
+  if(!hasil){ alert('Tanda tangan belum dibubuhkan.'); return; }
+  SIG[sigAktif]=hasil;
   put('meta', {key:sigKey(), sig:SIG});
   tampilkanSig(sigAktif);
   closeSig();
@@ -1327,16 +1355,14 @@ function buildPdf(rows, meta){
   var perPage=52, pagesTbl=[];
   for(var i=0;i<rows.length;i+=perPage) pagesTbl.push(rows.slice(i,i+perPage));
   if(!pagesTbl.length) pagesTbl.push([]);
-  /* Dua foto per halaman. Ukuran disesuaikan agar keduanya muat utuh dan
-     tetap terbaca, tanpa harus memenuhi lebar halaman. */
+  /* Tata letak lampiran menyesuaikan bentuk foto:
+     foto tegak disusun empat per halaman (dua kolom), foto mendatar dua per halaman. */
   var FOTO_ATAS = H - M - 46, FOTO_BAWAH = M + 16, LEBAR_FOTO = W - 2*M;
-  var SLOT = (FOTO_ATAS - FOTO_BAWAH) / 2;          /* tinggi jatah tiap foto */
-  var pagesPhoto=[];
-  photos.forEach(function(p){
-    var sc = Math.min(LEBAR_FOTO/p.w, (SLOT-20)/p.h);
-    p.dw = p.w*sc; p.dh = p.h*sc;
-  });
-  for(var j=0;j<photos.length;j+=2) pagesPhoto.push(photos.slice(j,j+2));
+  var SLOT_H = (FOTO_ATAS - FOTO_BAWAH) / 2;
+  var pagesPhoto=[], tegak=[], datar=[];
+  photos.forEach(function(p){ (p.h >= p.w ? tegak : datar).push(p); });
+  for(var t=0;t<tegak.length;t+=4) pagesPhoto.push({kolom:2, isi:tegak.slice(t,t+4)});
+  for(var d=0;d<datar.length;d+=2) pagesPhoto.push({kolom:1, isi:datar.slice(d,d+2)});
 
   var nPages = pagesTbl.length + 1 + pagesPhoto.length;      /* +1 halaman tanda tangan */
 
@@ -1433,30 +1459,34 @@ function buildPdf(rows, meta){
       c += T(x, y, 8, kk.t, true);
       var sg = signs.filter(function(z){ return z.nama===kk.key; })[0];
       if(sg){
-        var sw=Math.min(140, lebar-24), sh=sg.h*(sw/sg.w);
-        if(sh>52){ sh=52; sw=sg.w*(sh/sg.h); }
+        var maxW=lebar-24, maxH=54;
+        var sc2=Math.min(maxW/sg.w, maxH/sg.h);
+        var sw=sg.w*sc2, sh=sg.h*sc2;
         var si=photos.length + signs.indexOf(sg);
-        c += 'q '+sw.toFixed(2)+' 0 0 '+sh.toFixed(2)+' '+x.toFixed(2)+' '+(y-58).toFixed(2)+' cm /IM'+si+' Do Q\n';
+        c += 'q '+sw.toFixed(2)+' 0 0 '+sh.toFixed(2)+' '+x.toFixed(2)+' '+(y-14-sh).toFixed(2)+' cm /IM'+si+' Do Q\n';
       }
-      c += LINE(x, y-62, x+lebar-20, y-62, 0.6);
-      c += T(x, y-74, 8, kk.n ? '( '+kk.n+' )' : '(                              )');
-      c += T(x, y-88, 7, 'Tanggal: ...... / ...... / ..........');
+      c += LINE(x, y-72, x+lebar-20, y-72, 0.6);
+      c += T(x, y-84, 8, kk.n ? '( '+kk.n+' )' : '(                              )');
+      c += T(x, y-98, 7, 'Tanggal: ...... / ...... / ..........');
     });
     c += T(M, M-6, 7, 'Halaman '+(pagesTbl.length+1)+' dari '+nPages);
     return c;
   }
 
   function halamanFoto(k){
-    var ps=pagesPhoto[k], c='', y=H-M;
+    var pg=pagesPhoto[k], kol=pg.kolom, isi=pg.isi, c='', y=H-M;
     c += T(M, y-4, 12, 'LAMPIRAN BUKTI FOTO', true); y-=15;
     c += T(M, y-4, 8, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.periodLabel); y-=6;
-    c += LINE(M, y, W-M, y, 1); y-=14;
-    ps.forEach(function(p, i){
-      var atas = (H-M-46) - i*SLOT;                    /* batas atas jatah foto ini */
-      c += T(M, atas-8, 8, cut(p.cap, Math.floor(LEBAR_FOTO/4.4)), true);
-      var x = M + (LEBAR_FOTO - p.dw)/2;
-      c += 'q '+p.dw.toFixed(2)+' 0 0 '+p.dh.toFixed(2)+' '+x.toFixed(2)+' '+(atas-20-p.dh).toFixed(2)+
-           ' cm /IM'+photos.indexOf(p)+' Do Q\n';
+    c += LINE(M, y, W-M, y, 1);
+    var jarak=14, slotW=(LEBAR_FOTO-(kol-1)*jarak)/kol;
+    isi.forEach(function(p, i){
+      var kx=i%kol, ky=Math.floor(i/kol);
+      var x0=M+kx*(slotW+jarak), atas=FOTO_ATAS-ky*SLOT_H;
+      c += T(x0, atas-8, 7.5, cut(p.cap, Math.floor(slotW/3.9)), true);
+      var sc=Math.min(slotW/p.w, (SLOT_H-24)/p.h);
+      var dw=p.w*sc, dh=p.h*sc;
+      c += 'q '+dw.toFixed(2)+' 0 0 '+dh.toFixed(2)+' '+(x0+(slotW-dw)/2).toFixed(2)+' '+
+           (atas-20-dh).toFixed(2)+' cm /IM'+photos.indexOf(p)+' Do Q\n';
     });
     c += T(M, M-6, 7, 'Halaman '+(pagesTbl.length+2+k)+' dari '+nPages);
     return c;
@@ -1489,7 +1519,7 @@ function buildPdf(rows, meta){
         var gi=photos.length+signs.indexOf(g);
         return '/IM'+gi+' '+(ID_IMG0+gi)+' 0 R'; }).join(' ') + ' >>';
     } else if(k > pagesTbl.length){
-      var ps=pagesPhoto[k-pagesTbl.length-1];
+      var ps=pagesPhoto[k-pagesTbl.length-1].isi;
       xo = ' /XObject << ' + ps.map(function(p){ return '/IM'+photos.indexOf(p)+' '+(ID_IMG0+photos.indexOf(p))+' 0 R'; }).join(' ') + ' >>';
     }
     objs[idPage(k)] = lat1('<< /Type /Page /Parent '+ID_PAGES+' 0 R /MediaBox [0 0 '+W+' '+H+
