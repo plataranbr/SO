@@ -979,8 +979,7 @@ function finishCount(){
   var sisa = belumDihitung().length;
   if(sisa){
     if(!confirm('Masih terdapat '+sisa+' item yang tercatat bersaldo pada sistem '+
-      'namun belum dihitung.\n\nLaporan tetap dapat diterbitkan, dan item tersebut akan '+
-      'dicantumkan dengan status Belum dihitung.\n\nLanjutkan ke layar laporan?')) return;
+      'namun belum dihitung.\n\nLanjutkan ke layar laporan?')) return;
   }
   var rows=collect(), belum=sisa, tot=0, nFoto=0, nSelisih=0;
   rows.forEach(function(r){ tot+=r.amount; if(r.foto==='Y') nFoto++; if(Math.abs(r.selisih)>0.0001) nSelisih++; });
