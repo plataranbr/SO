@@ -290,8 +290,11 @@ var SELF_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
    BLOK 2 : DAFTAR UNIT  <-- UBAH DI SINI kalau ada unit baru/kode berubah
    Sumber: CONFIG project (CK FG Matrix)
    ===================================================================== */
-var UNITS = ["CK","PLD","PLS","PLMT","PATIO","TSMB","TSMS","TBXC","TD","TPIM","TPI","TSD",
-             "TSBK","TKM","PLCS","PLP","PGS","PKJ","RHJ","PATB","PLSMM","SUMABA","PKR","PIM"];
+/* Sumber: sheet Config pada berkas CK FG Matrix (19 unit) ditambah CK sebagai
+   Central Kitchen. Kode di sini harus sama persis dengan Config agar penamaan
+   unit konsisten di seluruh laporan. */
+var UNITS = ["CK","PLD","PLS","PLMT","PATIO","TSMB","TSMS","TBXC","TPIM","TPI","TSD",
+             "TSBK","TKM","PGS","PLCS","PKJ","PLP","TD","RHJ","PATB"];
 
 /* =====================================================================
    BLOK 3 : PARSER FILE SOH
