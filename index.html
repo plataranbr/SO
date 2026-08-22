@@ -84,7 +84,8 @@ th{background:#eef2f7}
     <div class="note"><b>1)</b> Ambil master saat masih ada sinyal → <b>2)</b> pilih Unit &amp; Store →
       <b>3)</b> hitung fisik (boleh tanpa sinyal) → <b>4)</b> export Excel.</div>
     <button class="btn" onclick="go('scFetch')">1. Ambil Master dari Server</button>
-    <button class="btn btn-ok" onclick="openPick()">2. Mulai / Lanjutkan Stock Opname</button>
+    <button class="btn btn-ok" id="btnStart" onclick="openPick()">2. Mulai / Lanjutkan Stock Opname</button>
+    <div id="lastSesBox"></div>
     <div style="text-align:center;margin-top:14px">
       <a href="javascript:void(0)" onclick="toggleAdv()" id="advLink"
          style="font-size:13px;color:#48566b;text-decoration:underline">Menu Cost Control ▾</a>
@@ -389,12 +390,13 @@ function parseSOH(filename, text){
 var DB=null;
 function dbOpen(){
   return new Promise(function(res,rej){
-    var rq = indexedDB.open('so_plataran', 1);
+    var rq = indexedDB.open('so_plataran', 2);
     rq.onupgradeneeded = function(e){
       var db = e.target.result;
       if(!db.objectStoreNames.contains('master')) db.createObjectStore('master', {keyPath:'unit'});
       if(!db.objectStoreNames.contains('counts')) db.createObjectStore('counts', {keyPath:'key'});
       if(!db.objectStoreNames.contains('photos')) db.createObjectStore('photos', {keyPath:'key'});
+      if(!db.objectStoreNames.contains('meta'))   db.createObjectStore('meta',   {keyPath:'key'});
     };
     rq.onsuccess=function(e){ DB=e.target.result; res(DB); };
     rq.onerror=function(){ rej(rq.error); };
@@ -486,7 +488,36 @@ function toggleAdv(){
   b.classList.toggle('hide');
   l.textContent = buka ? 'Menu Cost Control ▴' : 'Menu Cost Control ▾';
 }
+/* Kalau ada sesi terakhir, tawarkan lanjut langsung tanpa pilih ulang unit & store. */
+function refreshLastSession(){
+  var box=document.getElementById('lastSesBox'); if(!box) return;
+  get('meta','lastSession').then(function(ls){
+    if(!ls){ box.innerHTML=''; return; }
+    return get('master', ls.unit).then(function(m){
+      if(!m){ box.innerHTML=''; return; }
+      box.innerHTML =
+        '<button class="btn btn-ok" style="background:#0b6bcb" onclick="resumeLast()">'+
+        '▶ Lanjutkan: '+ls.unit+' / '+ls.store+'</button>'+
+        '<div class="note" style="text-align:center;margin-top:4px">sesi terakhir Anda — data hitung tersimpan</div>';
+      document.getElementById('btnStart').textContent = '2. Mulai sesi lain (pilih unit & store)';
+    });
+  });
+}
+function resumeLast(){
+  get('meta','lastSession').then(function(ls){
+    if(!ls) return openPick();
+    return get('master', ls.unit).then(function(m){
+      if(!m){ alert('Master unit '+ls.unit+' tidak ada lagi di alat ini.'); return openPick(); }
+      /* isi pilihan lalu jalankan sesi seperti biasa */
+      document.getElementById('pickUnit').innerHTML = '<option>'+ls.unit+'</option>';
+      document.getElementById('pickStore').innerHTML = '<option>'+ls.store+'</option>';
+      document.getElementById('pickUser').value = ls.user||'';
+      startSession();
+    });
+  });
+}
 function refreshHome(){
+  refreshLastSession();
   all('master').then(function(ms){
     if(!ms.length){ document.getElementById('masterList').innerHTML='Belum ada. Lakukan Import dulu.'; return; }
     var h='<table><tr><th>Unit</th><th>Periode</th><th>Item</th></tr>';
@@ -548,6 +579,7 @@ function startSession(){
     document.getElementById('sesLabel').textContent = S.unit + ' — ' + S.store;
     document.getElementById('sesMeta').textContent  = 'Periode '+S.period+(S.user?' • '+S.user:'');
     document.getElementById('hdrSub').textContent   = S.unit+' / '+S.store;
+    put('meta', {key:'lastSession', unit:S.unit, store:S.store, user:S.user, at:new Date().toISOString()});
     buildChips(); S.limit=60; renderList(); go('scMain');
   });
 }
@@ -611,7 +643,7 @@ function renderList(){
     var i=shown[k], c=S.counts[i.art], ph=S.photos[i.art]||[];
     var adaFoto = (S.photos[i.art]||[]).length>0;
     var adaNote = !!(c && c.note);
-    h+='<div class="item'+(c?' done':'')+'">'+
+    h+='<div class="item'+(c?' done':'')+'" id="it_'+i.art+'">'+
        '<div class="hdr"><span class="art">'+i.art+'</span>'+
          '<span class="sys'+(i.qtySys>0?' has':'')+'">Sistem '+fmt(i.qtySys)+' '+esc(i.uom)+'</span></div>'+
        '<div class="desc">'+esc(i.desc)+'</div>'+
@@ -619,13 +651,13 @@ function renderList(){
          (i.foreign?' • <b style="color:#b3401a">terdaftar di '+esc(i.foreign)+' (sistem '+fmt(i.sysAtHome)+')</b>':'')+
          (i.partial?' • <b style="color:#c0392b">harga 0, cek manual</b>':'')+'</div>'+
        '<div class="qtyline">'+
-         '<input type="number" inputmode="decimal" step="any" id="in_'+i.art+'" placeholder="qty fisik '+esc(i.uom)+'">'+
+         '<input type="number" inputmode="decimal" step="any" id="in_'+i.art+'" placeholder="qty fisik '+esc(i.uom)+'"'+
+           ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();addQty(\''+i.art+'\',true);}">'+
          '<button class="btn-ok btn-sm" onclick="addQty(\''+i.art+'\')">+</button>'+
          '<button class="btn2 btn-sm" onclick="takePhoto(\''+i.art+'\')">📷'+(adaFoto?'✓':'')+'</button>'+
          '<button class="btn2 btn-sm" onclick="toggleNote(\''+i.art+'\')">✎'+(adaNote?'✓':'')+'</button>'+
        '</div>'+
-       (c ? '<div class="total">Total: '+fmt(c.qty)+' '+esc(i.uom)+' ('+c.n+'x) '+
-            '<a href="javascript:void(0)" style="font-size:12px;color:#b3401a" onclick="resetQty(\''+i.art+'\')">reset</a></div>' : '')+
+       '<div class="total" id="tot_'+i.art+'">'+totalHtml(i.art)+'</div>'+
        '<div id="nt_'+i.art+'" class="'+(adaNote?'':'hide')+'">'+
          '<input type="text" placeholder="catatan…" value="'+esc(c&&c.note?c.note:'')+
          '" onchange="setNote(\''+i.art+'\',this.value)" style="margin-top:6px;font-size:14px;padding:8px"></div>'+
@@ -657,18 +689,42 @@ function updProgress(){
 }
 
 /* --- input qty: MENJUMLAH (item bisa ada di 2 tempat dalam satu store) --- */
-function addQty(art){
+/* Menyimpan qty tanpa membangun ulang seluruh daftar,
+   supaya posisi layar dan fokus keyboard tidak melompat. */
+function totalHtml(art){
+  var c=S.counts[art]; if(!c) return '';
+  var m=S.metaCross[art]||{};
+  return 'Total: '+fmt(c.qty)+' '+esc(m.uom||'')+' ('+c.n+'x) '+
+    '<a href="javascript:void(0)" style="font-size:12px;color:#b3401a" onclick="resetQty(\''+art+'\')">reset</a>';
+}
+function refreshRow(art){
+  var it=document.getElementById('it_'+art);
+  if(it){ if(S.counts[art]) it.classList.add('done'); else it.classList.remove('done'); }
+  var t=document.getElementById('tot_'+art); if(t) t.innerHTML=totalHtml(art);
+  updProgress();
+}
+/* pindah ke kolom qty item berikutnya setelah Enter */
+function focusNext(art){
+  var f=filtered(), idx=-1;
+  for(var i=0;i<f.length;i++){ if(f[i].art===art){ idx=i; break; } }
+  if(idx<0 || idx+1>=Math.min(f.length,S.limit)) return;
+  var nx=document.getElementById('in_'+f[idx+1].art);
+  if(nx){ nx.focus(); if(nx.scrollIntoView) nx.scrollIntoView({block:'center'}); }
+}
+function addQty(art, lanjut){
   var el=document.getElementById('in_'+art); var v=parseFloat(el.value);
   if(isNaN(v)){ el.focus(); return; }
   var c = S.counts[art] || {key:ck(art), unit:S.unit, store:S.store, art:art, qty:0, n:0, note:'', user:S.user};
   c.qty = Math.round((c.qty + v)*10000)/10000; c.n += 1; c.at = new Date().toISOString(); c.user=S.user;
   S.counts[art]=c; el.value='';
-  put('counts', c).then(renderList);
+  put('counts', c);
+  refreshRow(art);
+  if(lanjut) focusNext(art);
 }
 function resetQty(art){
   if(!confirm('Hapus hasil hitung item '+art+'?')) return;
   delete S.counts[art];
-  del('counts', ck(art)).then(renderList);
+  del('counts', ck(art)).then(function(){ refreshRow(art); });
 }
 function setNote(art, val){
   var c = S.counts[art] || {key:ck(art), unit:S.unit, store:S.store, art:art, qty:0, n:0, user:S.user};
