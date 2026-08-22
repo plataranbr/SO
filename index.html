@@ -1,0 +1,982 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Stock Opname - Plataran Indonesia</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#123a5e">
+<style>
+/* ============ BLOK 1 : TAMPILAN (CSS) ============ */
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+     background:#f2f4f7;color:#1b2230;font-size:16px}
+header{position:sticky;top:0;z-index:50;background:#123a5e;color:#fff;padding:10px 12px}
+header .ttl{font-size:15px;font-weight:700}
+header .sub{font-size:12px;opacity:.85;margin-top:2px}
+.wrap{padding:12px;max-width:900px;margin:0 auto}
+.card{background:#fff;border-radius:10px;padding:14px;margin-bottom:12px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+h2{font-size:17px;margin:0 0 10px}
+h3{font-size:14px;margin:14px 0 6px;color:#48566b}
+label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px;color:#374559}
+select,input[type=text],input[type=number],textarea{
+  width:100%;padding:12px;font-size:16px;border:1px solid #c6ced9;border-radius:8px;background:#fff}
+button{font-size:16px;font-weight:600;border:0;border-radius:8px;padding:14px 16px;cursor:pointer}
+.btn{background:#1769aa;color:#fff;width:100%;margin-top:10px}
+.btn2{background:#e6ebf2;color:#1b2230}
+.btn-ok{background:#0d8f4f;color:#fff}
+.btn-warn{background:#b3401a;color:#fff}
+.btn-sm{padding:9px 12px;font-size:14px;width:auto}
+.row{display:flex;gap:8px}.row>*{flex:1}
+.note{font-size:13px;line-height:1.5;color:#4a5769}
+.warn{background:#fff5e0;border-left:4px solid #e2a20b;padding:10px;border-radius:6px;font-size:13px;line-height:1.5}
+.err{background:#fdecec;border-left:4px solid #c0392b;padding:10px;border-radius:6px;font-size:13px}
+.ok{background:#e8f6ee;border-left:4px solid #0d8f4f;padding:10px;border-radius:6px;font-size:13px}
+.hide{display:none!important}
+/* daftar item */
+.item{background:#fff;border-radius:10px;padding:12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
+.item.done{border-left:5px solid #0d8f4f}
+.art{font-size:22px;font-weight:800;letter-spacing:1px;color:#123a5e}
+.desc{font-size:15px;margin:2px 0 4px}
+.meta{font-size:12px;color:#6b7688}
+.qtyline{display:flex;gap:8px;align-items:center;margin-top:8px}
+.qtyline input{flex:1}
+.total{font-size:14px;font-weight:700;color:#0d8f4f;margin-top:6px}
+.thumbs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
+.thumb{position:relative}
+.thumb img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #c6ced9}
+.thumb span{position:absolute;top:-6px;right:-6px;background:#c0392b;color:#fff;border-radius:50%;
+  width:22px;height:22px;line-height:22px;text-align:center;font-size:14px;cursor:pointer}
+.bar{height:8px;background:#dde3ea;border-radius:4px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:#0d8f4f}
+.chips{display:flex;gap:6px;overflow-x:auto;padding:6px 0}
+.chip{white-space:nowrap;padding:8px 12px;border-radius:20px;background:#e6ebf2;font-size:13px;cursor:pointer}
+.chip.on{background:#123a5e;color:#fff}
+.searchbar{position:sticky;top:60px;z-index:40;background:#f2f4f7;padding:8px 0}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th,td{border:1px solid #dde3ea;padding:6px;text-align:left}
+th{background:#eef2f7}
+.tag{display:inline-block;font-size:11px;padding:2px 6px;border-radius:4px;background:#e6ebf2;color:#48566b}
+.tag.fg{background:#f0e2ff;color:#5b2d8e}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="ttl">STOCK OPNAME — Plataran Indonesia</div>
+  <div class="sub" id="hdrSub">Cost Control</div>
+</header>
+
+<div class="wrap">
+
+<!-- ============ LAYAR 0 : PERINGATAN & MENU AWAL ============ -->
+<div id="scHome">
+  <div class="card">
+    <div class="warn" id="ctxWarn"></div>
+  </div>
+  <div class="card">
+    <h2>Mulai</h2>
+    <div class="note"><b>1)</b> Ambil master saat masih ada sinyal → <b>2)</b> pilih Unit &amp; Store →
+      <b>3)</b> hitung fisik (boleh tanpa sinyal) → <b>4)</b> export Excel.</div>
+    <button class="btn" onclick="go('scFetch')">1. Ambil Master dari Server</button>
+    <button class="btn btn-ok" onclick="openPick()">2. Mulai / Lanjutkan Stock Opname</button>
+    <div style="text-align:center;margin-top:14px">
+      <a href="javascript:void(0)" onclick="toggleAdv()" id="advLink"
+         style="font-size:13px;color:#48566b;text-decoration:underline">Menu Cost Control ▾</a>
+    </div>
+  </div>
+
+  <div class="card hide" id="advBox">
+    <h3 style="margin-top:0">Menu Cost Control</h3>
+    <div class="note">Dipakai saat menyiapkan master bulanan, bukan saat menghitung di store.</div>
+    <button class="btn btn2" onclick="go('scImport')">Import Master Item dari file SOH</button>
+    <button class="btn btn2" onclick="exportMasterJson()">Buat File Master untuk Di-upload ke Server</button>
+    <button class="btn btn2" onclick="go('scBackup')">Backup / Restore / Gabung Data</button>
+    <button class="btn btn2" onclick="exportSelf()">Buat File HTML + Master (cadangan offline)</button>
+  </div>
+  <div class="card">
+    <h3>Master item tersimpan di HP/laptop ini</h3>
+    <div id="masterList" class="note">—</div>
+  </div>
+</div>
+
+<!-- ============ LAYAR 1 : IMPORT MASTER ============ -->
+<div id="scImport" class="hide">
+  <div class="card">
+    <h2>Import Master Item dari SOH</h2>
+    <div class="note">Dilakukan <b>oleh Cost Control</b>, <b>sekali</b> sebelum SO dimulai.
+      Format didukung: <b>.txt</b> (VHP desktop/legacy) dan <b>.csv</b> (VHP cloud: TSBK, TPI, TSD).
+      File dibaca di alat ini saja, tidak dikirim ke mana pun.</div>
+
+    <label>Unit</label>
+    <select id="impUnit"></select>
+
+    <label>Periode (bulan SOH)</label>
+    <input type="text" id="impPeriod" placeholder="contoh: 2026-07">
+
+    <label>File SOH (.txt / .csv)</label>
+    <input type="file" id="impFile" accept=".txt,.csv,text/plain,text/csv">
+
+    <button class="btn" onclick="doImport()">Proses &amp; Simpan Master</button>
+    <div id="impResult" style="margin-top:12px"></div>
+    <button class="btn btn2" onclick="go('scHome')">Kembali</button>
+  </div>
+</div>
+
+<!-- ============ LAYAR 1B : AMBIL MASTER DARI SERVER ============ -->
+<div id="scFetch" class="hide">
+  <div class="card">
+    <h2>Ambil Master dari Server</h2>
+    <div class="note">Master item disiapkan Cost Control dan disimpan di server (GitHub).
+      <b>Butuh sinyal</b> — lakukan sekali saat masih di area bersinyal. Setelah tersimpan,
+      app bisa dipakai penuh tanpa internet.</div>
+    <label>Unit</label>
+    <select id="fetchUnit"></select>
+    <button class="btn" onclick="fetchMaster()">Ambil &amp; Simpan</button>
+    <div id="fetchResult" style="margin-top:12px"></div>
+    <button class="btn btn2" onclick="go('scHome')">Kembali</button>
+  </div>
+</div>
+
+<!-- ============ LAYAR 2 : PILIH UNIT & STORE ============ -->
+<div id="scPick" class="hide">
+  <div class="card">
+    <h2>Pilih Unit &amp; Store</h2>
+    <div class="note">Satu petugas = satu Store. Pembagian per store mencegah item terhitung dua kali
+      dan membuat hasil gabungan bisa dipisah per store.</div>
+    <label>Unit</label>
+    <select id="pickUnit" onchange="fillStores()"></select>
+    <label>Store / Area</label>
+    <select id="pickStore"></select>
+    <label>Nama Petugas (opsional, muncul di file export)</label>
+    <input type="text" id="pickUser" placeholder="contoh: Ans">
+    <button class="btn btn-ok" onclick="startSession()">Mulai Hitung</button>
+    <button class="btn btn2" onclick="go('scHome')">Kembali</button>
+  </div>
+</div>
+
+<!-- ============ LAYAR 3 : LAYAR UTAMA HITUNG ============ -->
+<div id="scMain" class="hide">
+  <div class="card" style="padding:10px 14px">
+    <div style="display:flex;justify-content:space-between;align-items:center">
+      <div><b id="sesLabel"></b><div class="meta" id="sesMeta"></div></div>
+      <button class="btn2 btn-sm" onclick="go('scHome')">Menu</button>
+    </div>
+    <div class="bar"><i id="progBar" style="width:0%"></i></div>
+    <div class="meta" id="progTxt" style="margin-top:4px"></div>
+  </div>
+
+  <div class="searchbar">
+    <input type="text" id="q" placeholder="Cari ArtNo atau nama item…" oninput="renderList()">
+    <div class="chips" id="chipGrp"></div>
+    <div class="chips" id="chipSec"></div>
+    <div class="row" style="margin-top:6px">
+      <button class="btn2 btn-sm" id="btnOnlyEmpty" onclick="toggleEmpty()">Tampilkan: Semua</button>
+      <button class="btn-ok btn-sm" onclick="finishCount()">Selesai &amp; Export</button>
+    </div>
+  </div>
+
+  <div id="list"></div>
+  <div id="listMore" class="note" style="text-align:center;padding:14px"></div>
+</div>
+
+<!-- ============ LAYAR 4 : REVIEW + REKOMENDASI FOTO + EXPORT ============ -->
+<div id="scDone" class="hide">
+  <div class="card">
+    <h2>Ringkasan &amp; Export</h2>
+    <div id="sumBox"></div>
+  </div>
+  <div class="card">
+    <h2>Rekomendasi Sample Proof (5 item)</h2>
+    <div class="note">Dihitung dari data yang sudah Anda input: prioritas <b>selisih fisik vs sistem terbesar</b>,
+      lalu <b>nilai rupiah terbesar</b>. Foto item lain tetap bisa diambil sendiri kapan saja.</div>
+    <div id="recBox" style="margin-top:10px"></div>
+  </div>
+  <div class="card">
+    <h2>Export</h2>
+    <div id="priceWarn"></div>
+    <button class="btn" onclick="exportXlsx()">Download Excel (.xlsx)</button>
+    <button class="btn btn2" onclick="exportPhotos()">Download Semua Foto (.zip)</button>
+    <button class="btn btn2" onclick="exportJson()">Backup JSON (sesi ini)</button>
+    <button class="btn btn2" onclick="go('scMain')">Kembali Menghitung</button>
+  </div>
+</div>
+
+<!-- ============ LAYAR 5 : BACKUP / RESTORE / GABUNG ============ -->
+<div id="scBackup" class="hide">
+  <div class="card">
+    <h2>Backup / Restore / Gabung</h2>
+    <div class="note">Gunakan untuk pindah alat, cadangan berkala, atau menggabungkan hasil beberapa petugas
+      ke satu alat sebelum export.</div>
+    <button class="btn" onclick="exportAllJson()">Backup SEMUA data (JSON)</button>
+    <label>Restore / Gabung dari file JSON</label>
+    <input type="file" id="resFile" accept=".json,application/json">
+    <div class="note" style="margin-top:6px">Qty dari file yang digabung akan <b>ditambahkan</b> bila
+      ArtNo + Store sama, agar hasil hitung dua petugas tidak saling menimpa.</div>
+    <button class="btn btn2" onclick="doRestore()">Proses File JSON</button>
+    <div id="resResult" style="margin-top:10px"></div>
+    <button class="btn btn2" onclick="go('scHome')">Kembali</button>
+  </div>
+  <div class="card">
+    <h3>Pemakaian penyimpanan</h3>
+    <div id="storageBox" class="note">—</div>
+    <button class="btn btn-warn" onclick="wipeSession()">Hapus data sesi aktif (hati-hati)</button>
+  </div>
+</div>
+
+</div>
+
+<input type="file" id="camIn" accept="image/*" capture="environment" class="hide">
+
+<script>
+/* =====================================================================
+   BLOK 1B : MASTER BAWAAN (diisi otomatis oleh tombol "Buat File + Master")
+   Kalau berisi data, item langsung tersedia tanpa perlu import.
+   ===================================================================== */
+var EMBEDDED_MASTERS = null; /*__EMBED_SLOT__*/
+
+/* salinan file ini sendiri, diambil sebelum tampilan berubah */
+var SELF_HTML = '<!DOCTYPE html>\n' + document.documentElement.outerHTML;
+
+/* =====================================================================
+   BLOK 2 : DAFTAR UNIT  <-- UBAH DI SINI kalau ada unit baru/kode berubah
+   Sumber: CONFIG project (CK FG Matrix)
+   ===================================================================== */
+var UNITS = ["CK","PLD","PLS","PLMT","PATIO","TSMB","TSMS","TBXC","TD","TPIM","TPI","TSD",
+             "TSBK","TKM","PLCS","PLP","PGS","PKJ","RHJ","PATB","PLSMM","SUMABA","PKR","PIM"];
+
+/* =====================================================================
+   BLOK 3 : PARSER FILE SOH
+   Dua format: (a) txt fixed-width VHP desktop, (b) csv VHP cloud.
+   Catatan penting: di KEDUA format, nama section (Meat, Bakery, Finish Good…)
+   muncul SESUDAH blok itemnya (baris subtotal). Jadi item ditampung dulu
+   di buffer, lalu diberi label ketika baris section ditemukan.
+   ===================================================================== */
+function num(s){ if(s==null) return 0; s=String(s).replace(/,/g,'').trim(); var v=parseFloat(s); return isNaN(v)?0:v; }
+
+/* --- grup besar: Food / Beverage / Material / FG --- */
+function grupLegacy(art, section){
+  var n = parseInt(art,10);
+  if(/finish good/i.test(section) || (n>=1117000 && n<=1121999)) return 'FG';
+  var p = art.substr(0,2);
+  if(p==='11') return 'Food';
+  if(p==='21'||p==='22') return 'Beverage';
+  return 'Material';
+}
+function grupCloud(art, section){
+  if(/finish good/i.test(section)) return 'FG';
+  if(/beverage|coffee|juice|soft drink|mineral water|beer|wine|liqu|vodka|gin|tequila|whisky/i.test(section)) return 'Beverage';
+  if(/food|meat|poultry|seafood|egg|vegetab|fruit|dimsum|bakery|pastry|sauce|rice|noodle|oil|dairy|groceries/i.test(section)) return 'Food';
+  return 'Material';
+}
+
+/* --- (a) TXT fixed-width --- */
+/* Baris item dibaca dari KANAN: 6 angka (Qty, Value, Content, [D-Unit teks], Content, Act P-Price, Avrg).
+   D-Unit dan Unit bisa KOSONG di sebagian item — karena itu keduanya dibuat opsional. */
+var RE_TAIL  = /\s+([\d,\-]+\.\d{2})\s+([\d,\-]+\.\d{2})\s+([\d,\-]+\.\d{2})\s+(?:\S+\s+)?([\d,\-]+\.\d{2})\s+([\d,\-]+\.\d{2})\s+([\d,\-]+\.\d{2})\s*$/;
+var RE_HEAD  = /^(\d{7})\s+(.*)$/;
+var RE_STORE = /^\s{6,}(\d{2})\s+(\S.*?)\s*$/;
+var RE_SECT  = /^\s{6,}([A-Za-z][^0-9]*?)\s{2,}[\d,\.\-]*\s*$/;
+
+function parseItemLine(ln){
+  var h = RE_HEAD.exec(ln); if(!h) return null;
+  var t = RE_TAIL.exec(ln);  if(!t) return null;
+  var head = ln.substring(0, ln.length - t[0].length);   // "1101034 Daging Kambing        KG"
+  var rest = head.replace(RE_HEAD, '$2').trim();
+  var parts = rest.split(/\s{2,}/);                       // desc dan unit dipisah >=2 spasi
+  var uom = parts.length>1 ? parts[parts.length-1].trim() : '';
+  var desc = parts.length>1 ? parts.slice(0,-1).join(' ').trim() : rest;
+  return {art:h[1], desc:desc, uom:uom, qtySys:num(t[1]), price:num(t[5])};
+}
+
+function parseTxt(text){
+  var lines = text.split(/\r?\n/), out=[], buf=[], store='(tanpa store)';
+  for(var i=0;i<lines.length;i++){
+    var ln = lines[i].replace(/\s+$/,'');
+    if(!ln.trim()) continue;
+    var m = parseItemLine(ln);
+    if(m){ m.store = store; buf.push(m); continue; }
+    /* Baris item yang tercetak terpotong di file VHP (hanya ArtNo + nama, tanpa angka).
+       Tetap dimasukkan agar item tidak hilang dari daftar hitung; ditandai partial. */
+    var pp = /^(\d{7})\s+(\S.*?)\s*$/.exec(ln);
+    if(pp && !/\d\.\d{2}/.test(ln)){
+      buf.push({art:pp[1], desc:pp[2].trim(), uom:'', qtySys:0, price:0, store:store, partial:true});
+      continue;
+    }
+    var s = RE_STORE.exec(ln);
+    if(s){ flush(''); store = s[1]+' '+s[2].trim(); continue; }
+    var c = RE_SECT.exec(ln);
+    if(c){ flush(c[1].trim()); continue; }
+  }
+  flush('');
+  function flush(sec){
+    for(var k=0;k<buf.length;k++){ buf[k].section = sec || 'Other'; buf[k].grup = grupLegacy(buf[k].art, buf[k].section); out.push(buf[k]); }
+    buf=[];
+  }
+  return out;
+}
+
+/* --- (b) CSV cloud --- */
+function csvRows(text){
+  var rows=[], row=[], cur='', q=false;
+  for(var i=0;i<text.length;i++){
+    var ch=text[i];
+    if(q){ if(ch==='"'){ if(text[i+1]==='"'){cur+='"';i++;} else q=false; } else cur+=ch; }
+    else { if(ch==='"') q=true;
+      else if(ch===','){ row.push(cur); cur=''; }
+      else if(ch==='\n'){ row.push(cur); rows.push(row); row=[]; cur=''; }
+      else if(ch!=='\r') cur+=ch; }
+  }
+  if(cur!==''||row.length){ row.push(cur); rows.push(row); }
+  return rows;
+}
+function parseCsv(text){
+  var rows=csvRows(text.replace(/^\uFEFF/,'')), out=[], buf=[], store='(tanpa store)';
+  for(var i=0;i<rows.length;i++){
+    var r=rows[i]; if(r.length<5) continue;
+    var art=(r[0]||'').trim(), name=(r[1]||'').trim();
+    if(/^\d{6,8}$/.test(art)){
+      buf.push({art:art, desc:name, uom:(r[2]||'').trim(), qtySys:num(r[3]), price:num(r[4]), store:store});
+      continue;
+    }
+    if(!art && name){
+      if(/^\d{2}\s/.test(name)){ flush(''); store=name; continue; }        // header store
+      if(/^(subtotal|total)/i.test(name)){ flush(''); continue; }           // subtotal store
+      if(/^article/i.test(name)) continue;                                  // header kolom
+      flush(name); continue;                                                // label section
+    }
+  }
+  flush('');
+  function flush(sec){
+    for(var k=0;k<buf.length;k++){ buf[k].section=sec||'Other'; buf[k].grup=grupCloud(buf[k].art, buf[k].section); out.push(buf[k]); }
+    buf=[];
+  }
+  return out;
+}
+
+function parseSOH(filename, text){
+  var items = /\.csv$/i.test(filename) ? parseCsv(text) : parseTxt(text);
+  /* satu ArtNo bisa terdaftar di beberapa store -> disimpan sebagai baris terpisah
+     (sesuai keputusan: penjumlahan hanya DALAM satu store).
+     Duplikat ArtNo di store yang SAMA digabung. */
+  var map={}, res=[];
+  for(var i=0;i<items.length;i++){
+    var it=items[i], key=it.store+'|'+it.art;
+    if(/XXX.*XXX/.test(it.desc)) continue;                 // item nonaktif
+    if(map[key]){ map[key].qtySys += it.qtySys; }
+    else { map[key]=it; res.push(it); }
+  }
+  return res;
+}
+
+/* =====================================================================
+   BLOK 4 : PENYIMPANAN (IndexedDB)
+   3 tabel: master (per unit), counts (hasil hitung), photos (foto)
+   ===================================================================== */
+var DB=null;
+function dbOpen(){
+  return new Promise(function(res,rej){
+    var rq = indexedDB.open('so_plataran', 1);
+    rq.onupgradeneeded = function(e){
+      var db = e.target.result;
+      if(!db.objectStoreNames.contains('master')) db.createObjectStore('master', {keyPath:'unit'});
+      if(!db.objectStoreNames.contains('counts')) db.createObjectStore('counts', {keyPath:'key'});
+      if(!db.objectStoreNames.contains('photos')) db.createObjectStore('photos', {keyPath:'key'});
+    };
+    rq.onsuccess=function(e){ DB=e.target.result; res(DB); };
+    rq.onerror=function(){ rej(rq.error); };
+  });
+}
+function tx(store, mode){ return DB.transaction(store, mode).objectStore(store); }
+function put(store, val){ return new Promise(function(res,rej){ var r=tx(store,'readwrite').put(val); r.onsuccess=function(){res()}; r.onerror=function(){rej(r.error)}; }); }
+function get(store, key){ return new Promise(function(res,rej){ var r=tx(store,'readonly').get(key); r.onsuccess=function(){res(r.result)}; r.onerror=function(){rej(r.error)}; }); }
+function del(store, key){ return new Promise(function(res,rej){ var r=tx(store,'readwrite').delete(key); r.onsuccess=function(){res()}; r.onerror=function(){rej(r.error)}; }); }
+function all(store){ return new Promise(function(res,rej){ var out=[], r=tx(store,'readonly').openCursor();
+  r.onsuccess=function(e){ var c=e.target.result; if(c){ out.push(c.value); c.continue(); } else res(out); }; r.onerror=function(){rej(r.error)}; }); }
+
+/* =====================================================================
+   BLOK 5 : STATE APLIKASI
+   ===================================================================== */
+var S = { unit:null, store:null, user:'', period:'', master:[], items:[], counts:{}, photos:{},
+          grup:'ALL', sec:'ALL', onlyEmpty:false, limit:60 };
+
+function go(id){
+  ['scHome','scImport','scFetch','scPick','scMain','scDone','scBackup'].forEach(function(x){
+    document.getElementById(x).classList.add('hide'); });
+  document.getElementById(id).classList.remove('hide');
+  window.scrollTo(0,0);
+  if(id==='scHome') refreshHome();
+  if(id==='scFetch') document.getElementById('fetchUnit').innerHTML = UNITS.map(function(u){ return '<option>'+u+'</option>'; }).join('');
+  if(id==='scBackup') refreshStorage();
+}
+
+/* --- deteksi lingkungan: peringatkan kalau dibuka di dalam claude.ai --- */
+function ctxCheck(){
+  var el=document.getElementById('ctxWarn'), inFrame=false;
+  try{ inFrame = (window.self !== window.top); }catch(e){ inFrame=true; }
+  if(inFrame){
+    el.innerHTML = '<b>⚠️ FILE INI SEDANG DI-PREVIEW DI DALAM APLIKASI LAIN.</b><br>'+
+      'Penyimpanan otomatis kemungkinan besar TIDAK berfungsi dan data hitung bisa hilang.<br>'+
+      '<b>Download dulu file HTML ini</b>, lalu buka langsung dari file manager / browser HP.';
+  } else if(location.protocol.indexOf('http')===0){
+    el.innerHTML = '<b>Mode web (GitHub Pages).</b> Buka halaman ini <b>satu kali saat ada sinyal</b> — '+
+      'app akan disimpan di alat Anda dan tetap bisa dibuka di area tanpa sinyal (gudang/basement).<br>'+
+      'Disarankan: menu browser → <b>Tambahkan ke Layar Utama</b>. Tetap lakukan <b>Backup JSON</b> berkala.';
+  } else {
+    el.innerHTML = '<b>Cara pakai yang benar:</b> file ini harus di-<b>download</b> dan dibuka langsung di browser '+
+      '(Chrome/Safari). Data tersimpan otomatis di alat ini. Tetap lakukan <b>Backup JSON</b> berkala — '+
+      'penyimpanan browser bisa terhapus bila aplikasi dibersihkan atau (di iPhone) lama tidak dibuka.';
+  }
+}
+
+/* =====================================================================
+   BLOK 6 : IMPORT MASTER
+   ===================================================================== */
+function fillUnitSelects(){
+  var h = UNITS.map(function(u){ return '<option>'+u+'</option>'; }).join('');
+  document.getElementById('impUnit').innerHTML = h;
+  document.getElementById('pickUnit').innerHTML = h;
+}
+function doImport(){
+  var unit = document.getElementById('impUnit').value;
+  var period = document.getElementById('impPeriod').value.trim();
+  var f = document.getElementById('impFile').files[0];
+  var box = document.getElementById('impResult');
+  if(!f){ box.innerHTML='<div class="err">File belum dipilih.</div>'; return; }
+  if(!period){ box.innerHTML='<div class="err">Periode belum diisi (contoh: 2026-07).</div>'; return; }
+  var rd = new FileReader();
+  rd.onload = function(){
+    var items;
+    try{ items = parseSOH(f.name, rd.result); }
+    catch(e){ box.innerHTML='<div class="err">Gagal membaca file: '+e.message+'</div>'; return; }
+    if(!items.length){ box.innerHTML='<div class="err">Tidak ada baris item yang terbaca. '+
+      'Pastikan file adalah Stock Onhand List dari VHP (.txt desktop atau .csv cloud).</div>'; return; }
+    var byGrup={}, byStore={}, nPartial=0;
+    items.forEach(function(i){ byGrup[i.grup]=(byGrup[i.grup]||0)+1; byStore[i.store]=(byStore[i.store]||0)+1; if(i.partial) nPartial++; });
+    put('master', {unit:unit, period:period, importedAt:new Date().toISOString(), items:items}).then(function(){
+      var h='<div class="ok"><b>Berhasil.</b> '+items.length+' baris item tersimpan untuk <b>'+unit+'</b> periode '+period+'.</div>';
+      h+='<h3>Per kategori</h3><table><tr><th>Kategori</th><th>Item</th></tr>';
+      Object.keys(byGrup).sort().forEach(function(k){ h+='<tr><td>'+k+'</td><td>'+byGrup[k]+'</td></tr>'; });
+      h+='</table><h3>Per store</h3><table><tr><th>Store</th><th>Item</th></tr>';
+      Object.keys(byStore).sort().forEach(function(k){ h+='<tr><td>'+k+'</td><td>'+byStore[k]+'</td></tr>'; });
+      h+='</table>';
+      if(nPartial) h+='<div class="warn" style="margin-top:10px"><b>'+nPartial+' item tercetak terpotong di file VHP</b> '+
+        '(hanya ArtNo + nama, tanpa harga). Item tetap bisa dihitung, tetapi Harga = 0 sehingga nilainya harus dilengkapi manual di Excel.</div>';
+      box.innerHTML=h;
+    });
+  };
+  rd.readAsText(f, 'ISO-8859-1');
+}
+function toggleAdv(){
+  var b=document.getElementById('advBox'), l=document.getElementById('advLink');
+  var buka=b.classList.contains('hide');
+  b.classList.toggle('hide');
+  l.textContent = buka ? 'Menu Cost Control ▴' : 'Menu Cost Control ▾';
+}
+function refreshHome(){
+  all('master').then(function(ms){
+    if(!ms.length){ document.getElementById('masterList').innerHTML='Belum ada. Lakukan Import dulu.'; return; }
+    var h='<table><tr><th>Unit</th><th>Periode</th><th>Item</th></tr>';
+    ms.forEach(function(m){ h+='<tr><td><b>'+m.unit+'</b></td><td>'+m.period+'</td><td>'+m.items.length+'</td></tr>'; });
+    document.getElementById('masterList').innerHTML=h+'</table>';
+  });
+}
+
+/* =====================================================================
+   BLOK 7 : PILIH UNIT & STORE
+   ===================================================================== */
+function openPick(){
+  all('master').then(function(ms){
+    if(!ms.length){ alert('Master item belum ada di alat ini.\n\nTekan "Ambil Master dari Server" (perlu sinyal), '+
+      'atau Cost Control melakukan "Import Master Item (SOH)".'); return; }
+    var sel=document.getElementById('pickUnit');
+    sel.innerHTML = ms.map(function(m){ return '<option>'+m.unit+'</option>'; }).join('');
+    fillStores(); go('scPick');
+  });
+}
+function fillStores(){
+  var u=document.getElementById('pickUnit').value;
+  get('master', u).then(function(m){
+    if(!m) return;
+    var seen={}, opts=[];
+    m.items.forEach(function(i){ if(!seen[i.store]){ seen[i.store]=1; opts.push(i.store); } });
+    document.getElementById('pickStore').innerHTML = opts.map(function(s){ return '<option>'+s+'</option>'; }).join('');
+  });
+}
+function startSession(){
+  S.unit  = document.getElementById('pickUnit').value;
+  S.store = document.getElementById('pickStore').value;
+  S.user  = document.getElementById('pickUser').value.trim();
+  get('master', S.unit).then(function(m){
+    S.period = m.period;
+    S.master = m.items;
+    S.items  = m.items.filter(function(i){ return i.store===S.store; });
+    return loadCounts();
+  }).then(function(){
+    document.getElementById('sesLabel').textContent = S.unit + ' — ' + S.store;
+    document.getElementById('sesMeta').textContent  = 'Periode '+S.period+(S.user?' • '+S.user:'');
+    document.getElementById('hdrSub').textContent   = S.unit+' / '+S.store;
+    buildChips(); S.limit=60; renderList(); go('scMain');
+  });
+}
+function ck(art){ return S.unit+'|'+S.store+'|'+art; }
+function loadCounts(){
+  S.counts={}; S.photos={};
+  return all('counts').then(function(cs){
+    cs.forEach(function(c){ if(c.unit===S.unit && c.store===S.store) S.counts[c.art]=c; });
+    return all('photos');
+  }).then(function(ps){
+    ps.forEach(function(p){ if(p.unit===S.unit && p.store===S.store){ (S.photos[p.art]=S.photos[p.art]||[]).push(p); } });
+  });
+}
+
+/* =====================================================================
+   BLOK 8 : LAYAR UTAMA — filter, daftar, input qty, foto
+   ===================================================================== */
+function buildChips(){
+  var gs={}, ss={};
+  S.items.forEach(function(i){ gs[i.grup]=1; ss[i.section]=1; });
+  var g=['ALL'].concat(Object.keys(gs).sort());
+  document.getElementById('chipGrp').innerHTML = g.map(function(x){
+    return '<div class="chip'+(S.grup===x?' on':'')+'" onclick="setGrup(\''+x+'\')">'+(x==='ALL'?'Semua':(x==='FG'?'Finish Good':x))+'</div>';
+  }).join('');
+  var s=['ALL'].concat(Object.keys(ss).sort());
+  document.getElementById('chipSec').innerHTML = s.map(function(x){
+    return '<div class="chip'+(S.sec===x?' on':'')+'" onclick="setSec(\''+x.replace(/'/g,"\\'")+'\')">'+(x==='ALL'?'Semua sub':x)+'</div>';
+  }).join('');
+}
+function setGrup(x){ S.grup=x; S.limit=60; buildChips(); renderList(); }
+function setSec(x){ S.sec=x; S.limit=60; buildChips(); renderList(); }
+function toggleEmpty(){ S.onlyEmpty=!S.onlyEmpty; S.limit=60;
+  document.getElementById('btnOnlyEmpty').textContent = 'Tampilkan: '+(S.onlyEmpty?'Belum diisi':'Semua'); renderList(); }
+
+function filtered(){
+  var q=document.getElementById('q').value.trim().toLowerCase();
+  return S.items.filter(function(i){
+    if(S.grup!=='ALL' && i.grup!==S.grup) return false;
+    if(S.sec !=='ALL' && i.section!==S.sec) return false;
+    if(S.onlyEmpty && S.counts[i.art]) return false;
+    if(q && i.art.indexOf(q)<0 && i.desc.toLowerCase().indexOf(q)<0) return false;
+    return true;
+  });
+}
+function fmt(n){ return (n||0).toLocaleString('id-ID',{maximumFractionDigits:2}); }
+
+function renderList(){
+  var f=filtered(), shown=f.slice(0,S.limit), h='';
+  for(var k=0;k<shown.length;k++){
+    var i=shown[k], c=S.counts[i.art], ph=S.photos[i.art]||[];
+    h+='<div class="item'+(c?' done':'')+'">'+
+       '<div class="art">'+i.art+'</div>'+
+       '<div class="desc">'+esc(i.desc)+'</div>'+
+       '<div class="meta">Satuan: <b>'+esc(i.uom)+'</b> • Sistem: '+fmt(i.qtySys)+
+         ' • Harga: '+fmt(i.price)+' <span class="tag'+(i.grup==='FG'?' fg':'')+'">'+esc(i.section)+'</span>'+
+         (i.partial?' <span class="tag" style="background:#fdecec;color:#c0392b">harga 0 — cek manual</span>':'')+'</div>'+
+       '<div class="qtyline">'+
+         '<input type="number" inputmode="decimal" step="any" id="in_'+i.art+'" placeholder="qty fisik">'+
+         '<button class="btn-ok btn-sm" onclick="addQty(\''+i.art+'\')">+ Tambah</button>'+
+         '<button class="btn2 btn-sm" onclick="takePhoto(\''+i.art+'\')">📷</button>'+
+       '</div>'+
+       (c ? '<div class="total">Total: '+fmt(c.qty)+' '+esc(i.uom)+' ('+c.n+'x input) '+
+            '<button class="btn2 btn-sm" onclick="resetQty(\''+i.art+'\')">reset</button></div>' : '')+
+       '<input type="text" placeholder="catatan…" value="'+esc(c&&c.note?c.note:'')+
+         '" onchange="setNote(\''+i.art+'\',this.value)" style="margin-top:6px">'+
+       '<div class="thumbs" id="th_'+i.art+'">'+thumbHtml(i.art)+'</div>'+
+       '</div>';
+  }
+  document.getElementById('list').innerHTML = h || '<div class="card note">Tidak ada item yang cocok.</div>';
+  document.getElementById('listMore').innerHTML = f.length>S.limit ?
+    '<button class="btn2" onclick="S.limit+=100;renderList()">Tampilkan lebih banyak ('+(f.length-S.limit)+' lagi)</button>' :
+    (f.length+' item ditampilkan');
+  updProgress();
+}
+function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
+function thumbHtml(art){
+  var ps=S.photos[art]||[];
+  return ps.map(function(p,idx){
+    return '<div class="thumb"><img src="'+p.data+'"><span onclick="delPhoto(\''+art+'\','+idx+')">×</span></div>';
+  }).join('');
+}
+function updProgress(){
+  var tot=S.items.length, done=0;
+  S.items.forEach(function(i){ if(S.counts[i.art]) done++; });
+  var pc = tot? Math.round(done/tot*100):0;
+  document.getElementById('progBar').style.width = pc+'%';
+  document.getElementById('progTxt').textContent = done+' dari '+tot+' item sudah diisi ('+pc+'%)';
+}
+
+/* --- input qty: MENJUMLAH (item bisa ada di 2 tempat dalam satu store) --- */
+function addQty(art){
+  var el=document.getElementById('in_'+art); var v=parseFloat(el.value);
+  if(isNaN(v)){ el.focus(); return; }
+  var c = S.counts[art] || {key:ck(art), unit:S.unit, store:S.store, art:art, qty:0, n:0, note:'', user:S.user};
+  c.qty = Math.round((c.qty + v)*10000)/10000; c.n += 1; c.at = new Date().toISOString(); c.user=S.user;
+  S.counts[art]=c; el.value='';
+  put('counts', c).then(renderList);
+}
+function resetQty(art){
+  if(!confirm('Hapus hasil hitung item '+art+'?')) return;
+  delete S.counts[art];
+  del('counts', ck(art)).then(renderList);
+}
+function setNote(art, val){
+  var c = S.counts[art] || {key:ck(art), unit:S.unit, store:S.store, art:art, qty:0, n:0, user:S.user};
+  c.note = val; S.counts[art]=c; put('counts', c);
+}
+
+/* --- foto: kompres 800px / JPEG 0.6, maksimal 2 per item --- */
+var camArt=null;
+function takePhoto(art){
+  if((S.photos[art]||[]).length>=2){ alert('Maksimal 2 foto per item.'); return; }
+  camArt=art; var el=document.getElementById('camIn'); el.value=''; el.click();
+}
+document.getElementById('camIn').addEventListener('change', function(e){
+  var f=e.target.files[0]; if(!f||!camArt) return;
+  var art=camArt, rd=new FileReader();
+  rd.onload=function(){
+    var img=new Image();
+    img.onload=function(){
+      var mx=800, w=img.width, h=img.height, r=Math.min(1, mx/Math.max(w,h));
+      var cv=document.createElement('canvas'); cv.width=Math.round(w*r); cv.height=Math.round(h*r);
+      cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
+      var data=cv.toDataURL('image/jpeg', 0.6);
+      var idx=(S.photos[art]||[]).length;
+      var rec={key:ck(art)+'|'+idx, unit:S.unit, store:S.store, art:art, idx:idx, data:data};
+      (S.photos[art]=S.photos[art]||[]).push(rec);
+      put('photos', rec).then(function(){
+        var t=document.getElementById('th_'+art); if(t) t.innerHTML=thumbHtml(art);
+      });
+    };
+    img.src=rd.result;
+  };
+  rd.readAsDataURL(f);
+});
+function delPhoto(art, idx){
+  var ps=S.photos[art]||[]; var rec=ps[idx]; if(!rec) return;
+  del('photos', rec.key).then(function(){
+    ps.splice(idx,1);
+    var t=document.getElementById('th_'+art); if(t) t.innerHTML=thumbHtml(art);
+  });
+}
+
+/* =====================================================================
+   BLOK 9 : RINGKASAN + REKOMENDASI 5 ITEM
+   ===================================================================== */
+function finishCount(){
+  var rows=collect(), tot=0, nFoto=0, nSelisih=0;
+  rows.forEach(function(r){ tot+=r.amount; if(r.foto==='Y') nFoto++; if(Math.abs(r.selisih)>0.0001) nSelisih++; });
+  document.getElementById('sumBox').innerHTML =
+    '<table><tr><th>Unit / Store</th><td>'+S.unit+' / '+esc(S.store)+'</td></tr>'+
+    '<tr><th>Periode</th><td>'+S.period+'</td></tr>'+
+    '<tr><th>Item terisi</th><td>'+rows.length+' dari '+S.items.length+'</td></tr>'+
+    '<tr><th>Nilai SO fisik</th><td><b>Rp '+fmt(Math.round(tot))+'</b></td></tr>'+
+    '<tr><th>Item selisih vs sistem</th><td>'+nSelisih+'</td></tr>'+
+    '<tr><th>Item berfoto</th><td>'+nFoto+'</td></tr></table>';
+  var tanpaHarga = rows.length && !rows.some(function(r){ return r.price>0; });
+  document.getElementById('priceWarn').innerHTML = tanpaHarga ?
+    '<div class="warn">Master dari server tidak memuat harga, jadi kolom <b>Price</b> dan <b>Amount</b> '+
+    'akan berisi 0. Harga diisi otomatis oleh makro Report Cost Control lewat pencocokan ArtNo. Ini normal.</div>' : '';
+  var rec = recommend(rows);
+  document.getElementById('recBox').innerHTML = rec.length ? rec.map(function(r){
+    var has=(S.photos[r.art]||[]).length>0;
+    return '<div class="item"><div class="art">'+r.art+'</div><div class="desc">'+esc(r.desc)+'</div>'+
+      '<div class="meta">Fisik '+fmt(r.qty)+' vs Sistem '+fmt(r.qtySys)+' → selisih <b>'+fmt(r.selisih)+'</b> '+esc(r.uom)+
+      ' • nilai Rp '+fmt(Math.round(r.amount))+'</div>'+
+      '<div class="meta" style="margin-top:4px">Alasan: '+r.why+'</div>'+
+      (has?'<div class="total">✔ sudah ada foto</div>':
+        '<button class="btn2 btn-sm" style="margin-top:6px" onclick="takePhoto(\''+r.art+'\')">📷 Ambil foto sekarang</button>')+
+      '<div class="thumbs" id="th_'+r.art+'">'+thumbHtml(r.art)+'</div></div>';
+  }).join('') : '<div class="note">Belum ada data hitung.</div>';
+  go('scDone');
+}
+function collect(){
+  var out=[];
+  S.items.forEach(function(i){
+    var c=S.counts[i.art]; if(!c) return;
+    out.push({art:i.art, desc:i.desc, uom:i.uom, qty:c.qty, price:i.price,
+      amount:c.qty*i.price, note:c.note||'', foto:(S.photos[i.art]||[]).length?'Y':'N',
+      store:S.store, qtySys:i.qtySys, selisih:Math.round((c.qty-i.qtySys)*10000)/10000});
+  });
+  return out;
+}
+/* 3 item selisih nilai terbesar + 2 item nilai fisik terbesar */
+function recommend(rows){
+  var pakaiHarga = rows.some(function(r){ return r.price>0; });   // master dari server tidak memuat harga
+  var a = rows.slice().sort(function(x,y){
+      return pakaiHarga ? Math.abs(y.selisih*y.price)-Math.abs(x.selisih*x.price)
+                        : Math.abs(y.selisih)-Math.abs(x.selisih); })
+      .filter(function(r){ return Math.abs(r.selisih)>0.0001; }).slice(0,3);
+  a.forEach(function(r){ r.why = pakaiHarga ? 'selisih nilai terbesar' : 'selisih qty terbesar vs sistem'; });
+  var used={}; a.forEach(function(r){ used[r.art]=1; });
+  var b = rows.slice().sort(function(x,y){
+      return pakaiHarga ? y.amount-x.amount : y.qty-x.qty; })
+      .filter(function(r){ return !used[r.art] && (pakaiHarga ? r.amount>0 : r.qty>0); }).slice(0,5-a.length);
+  b.forEach(function(r){ r.why = pakaiHarga ? 'nilai rupiah terbesar' : 'qty fisik terbesar'; });
+  return a.concat(b);
+}
+
+/* =====================================================================
+   BLOK 10 : EXPORT — ZIP, XLSX, FOTO, JSON  (tanpa library eksternal)
+   ===================================================================== */
+var CRCT=(function(){ var t=[],c; for(var n=0;n<256;n++){ c=n; for(var k=0;k<8;k++) c=(c&1)?(0xEDB88320^(c>>>1)):(c>>>1); t[n]=c>>>0; } return t; })();
+function crc32(u8){ var c=0xFFFFFFFF; for(var i=0;i<u8.length;i++) c=CRCT[(c^u8[i])&0xFF]^(c>>>8); return (c^0xFFFFFFFF)>>>0; }
+function s2u8(s){ return new TextEncoder().encode(s); }
+function makeZip(files){ /* files: [{name, data:Uint8Array}] — metode STORE (tanpa kompresi) */
+  var parts=[], central=[], off=0;
+  files.forEach(function(f){
+    var nm=s2u8(f.name), crc=crc32(f.data), sz=f.data.length;
+    var lh=new DataView(new ArrayBuffer(30));
+    lh.setUint32(0,0x04034b50,true); lh.setUint16(4,20,true); lh.setUint16(6,0,true); lh.setUint16(8,0,true);
+    lh.setUint16(10,0,true); lh.setUint16(12,0,true); lh.setUint32(14,crc,true);
+    lh.setUint32(18,sz,true); lh.setUint32(22,sz,true); lh.setUint16(26,nm.length,true); lh.setUint16(28,0,true);
+    parts.push(new Uint8Array(lh.buffer), nm, f.data);
+    var ch=new DataView(new ArrayBuffer(46));
+    ch.setUint32(0,0x02014b50,true); ch.setUint16(4,20,true); ch.setUint16(6,20,true);
+    ch.setUint32(16,crc,true); ch.setUint32(20,sz,true); ch.setUint32(24,sz,true);
+    ch.setUint16(28,nm.length,true); ch.setUint32(42,off,true);
+    central.push(new Uint8Array(ch.buffer), nm);
+    off += 30+nm.length+sz;
+  });
+  var cs=0; central.forEach(function(x){ cs+=x.length; });
+  var ed=new DataView(new ArrayBuffer(22));
+  ed.setUint32(0,0x06054b50,true); ed.setUint16(8,files.length,true); ed.setUint16(10,files.length,true);
+  ed.setUint32(12,cs,true); ed.setUint32(16,off,true);
+  var blobParts=parts.concat(central); blobParts.push(new Uint8Array(ed.buffer));
+  return new Blob(blobParts, {type:'application/zip'});
+}
+function xesc(s){ return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function sheetXml(rows){
+  var x='<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'+
+    '<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>';
+  rows.forEach(function(r,ri){
+    x+='<row r="'+(ri+1)+'">';
+    r.forEach(function(v,ci){
+      var ref=colName(ci)+(ri+1);
+      if(typeof v==='number' && isFinite(v)) x+='<c r="'+ref+'"><v>'+v+'</v></c>';
+      else x+='<c r="'+ref+'" t="inlineStr"><is><t xml:space="preserve">'+xesc(v==null?'':v)+'</t></is></c>';
+    });
+    x+='</row>';
+  });
+  return x+'</sheetData></worksheet>';
+}
+function colName(i){ var s=''; i++; while(i>0){ var m=(i-1)%26; s=String.fromCharCode(65+m)+s; i=Math.floor((i-1)/26); } return s; }
+function buildXlsx(rows){
+  var files=[
+    {name:'[Content_Types].xml', data:s2u8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>')},
+    {name:'_rels/.rels', data:s2u8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>')},
+    {name:'xl/workbook.xml', data:s2u8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="SO" sheetId="1" r:id="rId1"/></sheets></workbook>')},
+    {name:'xl/_rels/workbook.xml.rels', data:s2u8('<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>')},
+    {name:'xl/worksheets/sheet1.xml', data:s2u8(sheetXml(rows))}
+  ];
+  return makeZip(files);
+}
+function dl(blob, name){
+  var a=document.createElement('a'), u=URL.createObjectURL(blob);
+  a.href=u; a.download=name; document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(u); a.remove(); }, 1500);
+}
+/* HEADER WAJIB — kolom A..H persis untuk makro Report Cost Control.
+   Kolom I..K tambahan (tidak mengganggu makro yang membaca A..H). */
+var HEADER = ['ArtNo','Description','Unit','Qty Fisik','Price','Amount','Catatan','Ada Foto (Y/N)',
+              'Store','Qty Sistem','Selisih'];
+function exportXlsx(){
+  var rows=collect();
+  if(!rows.length){ alert('Belum ada data untuk di-export.'); return; }
+  var data=[HEADER];
+  rows.forEach(function(r){
+    data.push([r.art, r.desc, r.uom, r.qty, r.price, Math.round(r.amount*100)/100,
+               r.note, r.foto, r.store, r.qtySys, r.selisih]);
+  });
+  dl(buildXlsx(data), 'SO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.xlsx');
+}
+function safe(s){ return String(s).replace(/[^A-Za-z0-9]+/g,'_').replace(/^_|_$/g,''); }
+function b64ToU8(b64){ var s=atob(b64), u=new Uint8Array(s.length); for(var i=0;i<s.length;i++) u[i]=s.charCodeAt(i); return u; }
+function exportPhotos(){
+  var files=[], n=0;
+  Object.keys(S.photos).forEach(function(art){
+    S.photos[art].forEach(function(p,idx){
+      var b64=p.data.split(',')[1];
+      files.push({name:S.unit+'_'+art+(idx?('_'+(idx+1)):'')+'.jpg', data:b64ToU8(b64)}); n++;
+    });
+  });
+  if(!n){ alert('Belum ada foto pada sesi ini.'); return; }
+  dl(makeZip(files), 'FOTO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.zip');
+}
+function exportJson(){
+  var counts=[]; Object.keys(S.counts).forEach(function(a){ counts.push(S.counts[a]); });
+  var photos=[]; Object.keys(S.photos).forEach(function(a){ S.photos[a].forEach(function(p){ photos.push(p); }); });
+  var obj={type:'SO_PLATARAN', unit:S.unit, store:S.store, period:S.period, user:S.user, counts:counts, photos:photos};
+  dl(new Blob([JSON.stringify(obj)],{type:'application/json'}),
+     'BACKUP_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.json');
+}
+function exportAllJson(){
+  Promise.all([all('counts'), all('photos'), all('master')]).then(function(r){
+    var obj={type:'SO_PLATARAN_ALL', counts:r[0], photos:r[1],
+             masters:r[2].map(function(m){ return {unit:m.unit, period:m.period, items:m.items}; })};
+    dl(new Blob([JSON.stringify(obj)],{type:'application/json'}), 'BACKUP_SEMUA_'+new Date().toISOString().slice(0,10)+'.json');
+  });
+}
+
+/* =====================================================================
+   BLOK 10B : MASTER DI SERVER (GitHub Pages), SATU FILE PER UNIT
+   Letak file di repo: master/PLD.json, master/CK.json, dst.
+   Format sengaja dibuat KOMPAK supaya hemat kuota HP:
+     p  = periode
+     st = daftar nama store (item menyimpan nomor urutnya saja)
+     sc = daftar nama section
+     i  = [ArtNo, Description, Satuan, QtySistem, no_store, no_section, grup]
+   HARGA TIDAK DISERTAKAN — repo GitHub bersifat publik. Kolom Price/Amount
+   di file export diisi oleh makro Report Cost Control lewat pencocokan ArtNo.
+   ===================================================================== */
+var GRUPS = ['Food','Beverage','Material','FG'];
+
+function packMaster(m){
+  var st=[], sc=[], si={}, ci={}, rows=[];
+  m.items.forEach(function(it){
+    if(si[it.store]===undefined){ si[it.store]=st.length; st.push(it.store); }
+    if(ci[it.section]===undefined){ ci[it.section]=sc.length; sc.push(it.section); }
+    rows.push([it.art, it.desc, it.uom, it.qtySys, si[it.store], ci[it.section], GRUPS.indexOf(it.grup)]);
+  });
+  return {unit:m.unit, p:m.period, noPrice:true, st:st, sc:sc, i:rows};
+}
+function unpackMaster(o){
+  return {unit:o.unit, period:o.p, noPrice:!!o.noPrice, importedAt:new Date().toISOString(),
+    items:o.i.map(function(r){
+      return {art:r[0], desc:r[1], uom:r[2], qtySys:r[3], price:0,
+              store:o.st[r[4]], section:o.sc[r[5]], grup:GRUPS[r[6]]||'Material'};
+    })};
+}
+/* Cost Control: hasilkan satu file per unit untuk di-upload ke folder master/ */
+function exportMasterJson(){
+  all('master').then(function(ms){
+    if(!ms.length){ alert('Belum ada master. Lakukan Import Master Item dulu.'); return; }
+    ms.forEach(function(m, k){
+      setTimeout(function(){
+        var txt = JSON.stringify(packMaster(m));
+        dl(new Blob([txt],{type:'application/json'}), m.unit+'.json');
+      }, k*800);   // jeda agar browser tidak memblokir unduhan beruntun
+    });
+    alert('Dibuat '+ms.length+' file: '+ms.map(function(m){return m.unit+'.json';}).join(', ')+
+      '\n\nUpload ke repo GitHub ke dalam folder "master/". Setelah itu tim cukup menekan '+
+      '"Ambil Master dari Server" — tanpa import, tanpa kirim file.\n\nCatatan: file ini TIDAK memuat harga.');
+  });
+}
+/* Petugas: tarik master unitnya sendiri dari server */
+function fetchMaster(unitArg){
+  var unit = unitArg || document.getElementById('fetchUnit').value;
+  var box  = document.getElementById('fetchResult');
+  if(box) box.innerHTML = '<div class="note">Mengambil master '+unit+'…</div>';
+  return fetch('master/'+unit+'.json?t='+Date.now()).then(function(r){
+    if(!r.ok) throw new Error('HTTP '+r.status);
+    return r.json();
+  }).then(function(o){
+    var m = unpackMaster(o);
+    return put('master', m).then(function(){
+      if(box) box.innerHTML = '<div class="ok">Master <b>'+unit+'</b> periode '+m.period+
+        ' tersimpan: '+m.items.length+' item. Sekarang app bisa dipakai tanpa internet.</div>';
+      refreshHome(); return m;
+    });
+  }).catch(function(e){
+    if(box) box.innerHTML = '<div class="err">Gagal mengambil master '+unit+' ('+e.message+').<br>'+
+      'Kemungkinan: belum di-upload Cost Control, tidak ada sinyal, atau app dibuka dari file (bukan link server).</div>';
+    return null;
+  });
+}
+
+/* --- Membuat salinan file ini yang sudah berisi master item.
+       Tim penerima tidak perlu import apa pun. --- */
+function exportSelf(){
+  all('master').then(function(ms){
+    if(!ms.length){ alert('Belum ada master. Lakukan Import Master Item dulu.'); return; }
+    var payload = 'EMBEDDED_MASTERS = ' + JSON.stringify(ms).replace(/<\//g,'<\\/') + '; /*__EMBED_SLOT__*/';
+    if(SELF_HTML.indexOf('/*__EMBED_SLOT__*/') < 0){ alert('Gagal: penanda embed tidak ditemukan.'); return; }
+    var out = SELF_HTML.replace('/*__EMBED_SLOT__*/', payload);
+    var mb = (out.length/1048576).toFixed(1);
+    var per = ms.map(function(m){ return m.unit+' ('+m.items.length+' item)'; }).join(', ');
+    dl(new Blob([out],{type:'text/html'}), 'SO_Plataran_'+ms[0].period.replace(/[^0-9]/g,'')+'.html');
+    alert('File dibuat: '+mb+' MB\nBerisi master: '+per+'\n\nBagikan file INI ke tim. Mereka cukup membuka, tanpa import.');
+  });
+}
+/* --- Saat file dibuka: master bawaan otomatis dipasang bila belum ada --- */
+function loadEmbedded(){
+  if(!EMBEDDED_MASTERS || !EMBEDDED_MASTERS.length) return Promise.resolve();
+  var jobs = EMBEDDED_MASTERS.map(function(m){
+    return get('master', m.unit).then(function(ex){
+      if(ex && ex.period === m.period) return;   // sudah ada & periode sama -> biarkan
+      return put('master', {unit:m.unit, period:m.period, importedAt:new Date().toISOString(), items:m.items});
+    });
+  });
+  return Promise.all(jobs);
+}
+
+/* =====================================================================
+   BLOK 11 : RESTORE / GABUNG
+   ===================================================================== */
+function doRestore(){
+  var f=document.getElementById('resFile').files[0], box=document.getElementById('resResult');
+  if(!f){ box.innerHTML='<div class="err">File belum dipilih.</div>'; return; }
+  var rd=new FileReader();
+  rd.onload=function(){
+    var o; try{ o=JSON.parse(rd.result); }catch(e){ box.innerHTML='<div class="err">File JSON tidak valid.</div>'; return; }
+    var counts=o.counts||[], photos=o.photos||[], masters=o.masters||[];
+    var jobs=[], merged=0, added=0;
+    masters.forEach(function(m){ jobs.push(put('master', {unit:m.unit, period:m.period, importedAt:new Date().toISOString(), items:m.items})); });
+    all('counts').then(function(cur){
+      var map={}; cur.forEach(function(c){ map[c.key]=c; });
+      counts.forEach(function(c){
+        if(map[c.key]){ var e=map[c.key]; e.qty=Math.round((e.qty+c.qty)*10000)/10000; e.n=(e.n||0)+(c.n||0);
+          if(c.note && !e.note) e.note=c.note; jobs.push(put('counts', e)); merged++; }
+        else { jobs.push(put('counts', c)); added++; }
+      });
+      photos.forEach(function(p){ jobs.push(put('photos', p)); });
+      return Promise.all(jobs);
+    }).then(function(){
+      box.innerHTML='<div class="ok">Selesai. Item baru: <b>'+added+'</b>, item dijumlahkan: <b>'+merged+'</b>, foto: <b>'+photos.length+'</b>.'+
+        (masters.length?' Master unit: '+masters.length+'.':'')+'</div>';
+      if(S.unit) loadCounts().then(renderList);
+      refreshStorage();
+    });
+  };
+  rd.readAsText(f);
+}
+function refreshStorage(){
+  var box=document.getElementById('storageBox');
+  Promise.all([all('counts'), all('photos')]).then(function(r){
+    var bytes=0; r[1].forEach(function(p){ bytes += p.data.length*0.75; });
+    var h='Baris hitung tersimpan: <b>'+r[0].length+'</b><br>Foto tersimpan: <b>'+r[1].length+
+          '</b> (± '+(bytes/1048576).toFixed(1)+' MB)';
+    if(navigator.storage && navigator.storage.estimate){
+      navigator.storage.estimate().then(function(e){
+        box.innerHTML = h+'<br>Kuota browser: ± '+(e.usage/1048576).toFixed(1)+' MB terpakai dari '+
+          (e.quota/1048576).toFixed(0)+' MB.'+((bytes/1048576)>60?'<br><b>⚠️ Foto sudah >60 MB — segera export & backup.</b>':'');
+      });
+    } else box.innerHTML=h;
+  });
+}
+function wipeSession(){
+  if(!S.unit){ alert('Tidak ada sesi aktif.'); return; }
+  if(!confirm('Hapus SEMUA hasil hitung & foto untuk '+S.unit+' / '+S.store+'? Tidak bisa dibatalkan.')) return;
+  Promise.all([all('counts'), all('photos')]).then(function(r){
+    var jobs=[];
+    r[0].forEach(function(c){ if(c.unit===S.unit&&c.store===S.store) jobs.push(del('counts', c.key)); });
+    r[1].forEach(function(p){ if(p.unit===S.unit&&p.store===S.store) jobs.push(del('photos', p.key)); });
+    return Promise.all(jobs);
+  }).then(function(){ S.counts={}; S.photos={}; refreshStorage(); alert('Data sesi dihapus.'); });
+}
+
+/* =====================================================================
+   BLOK 12 : START
+   ===================================================================== */
+/* --- Service worker: agar app tetap terbuka saat tanpa sinyal (hanya jalan bila diakses via https, mis. GitHub Pages) --- */
+if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
+  navigator.serviceWorker.register('sw.js').catch(function(e){ console.log('SW gagal:', e); });
+}
+ctxCheck(); fillUnitSelects();
+dbOpen().then(loadEmbedded).then(function(){ refreshHome(); }).catch(function(e){
+  document.getElementById('ctxWarn').innerHTML =
+    '<b>⚠️ Penyimpanan browser tidak bisa dibuka ('+e+').</b> Data hitung TIDAK akan tersimpan. '+
+    'Pastikan file di-download dan dibuka langsung di browser, bukan mode penyamaran/private.';
+});
+</script>
+</body>
+</html>
