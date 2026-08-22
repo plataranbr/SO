@@ -63,15 +63,24 @@ th,td{border:1px solid #dde3ea;padding:6px;text-align:left}
 th{background:#eef2f7}
 .tag{display:inline-block;font-size:11px;padding:2px 6px;border-radius:4px;background:#e6ebf2;color:#48566b}
 .tag.fg{background:#f0e2ff;color:#5b2d8e}
-.sigpad{width:100%;height:120px;border:1px dashed #a9b4c2;border-radius:8px;background:#fff;
-        touch-action:none;display:block;margin-top:6px}
+.sigbox{width:100%;height:110px;border:1px dashed #a9b4c2;border-radius:8px;background:#fff;margin-top:6px;
+        display:flex;align-items:center;justify-content:center;color:#8a93a3;font-size:13px;text-align:center;
+        cursor:pointer;overflow:hidden}
+.sigbox img{max-width:100%;max-height:100%;object-fit:contain}
+.sigmodal{position:fixed;inset:0;z-index:999;background:#fff;display:flex;flex-direction:column}
+.sigmodal .bar{display:flex;gap:8px;align-items:center;padding:10px 12px;background:#123a5e;color:#fff}
+.sigmodal .bar b{flex:1;font-size:15px}
+.sigmodal .bar button{padding:9px 14px;font-size:14px}
+.sigmodal canvas{flex:1;width:100%;background:#fff;touch-action:none}
+.sigmodal .foot{display:flex;gap:8px;padding:10px 12px;background:#f2f4f7}
+.sigmodal .foot button{flex:1}
 </style>
 </head>
 <body>
 
 <header>
-  <div class="ttl">STOCK OPNAME — Plataran Indonesia</div>
-  <div class="sub" id="hdrSub">Cost Control</div>
+  <div class="ttl">Stock Opname — Plataran Indonesia</div>
+  <div class="sub" id="hdrSub">Departemen Cost Control</div>
 </header>
 
 <div class="wrap">
@@ -82,10 +91,10 @@ th{background:#eef2f7}
     <div class="warn" id="ctxWarn"></div>
   </div>
   <div class="card">
-    <h2>Mulai</h2>
-    <div class="note"><b>1)</b> Pilih Unit &amp; Store <b>saat masih ada sinyal</b> (daftar item terunduh otomatis) →
-      <b>2)</b> hitung fisik (boleh tanpa sinyal) → <b>3)</b> export Excel/PDF.</div>
-    <button class="btn btn-ok" id="btnStart" onclick="openPick()">Mulai Stock Opname</button>
+    <h2>Mulai Bekerja</h2>
+    <div class="note">Alur kerja: <b>1)</b> pilih unit dan store <b>selagi jaringan tersedia</b> — daftar item terunduh otomatis;
+      <b>2)</b> lakukan perhitungan fisik, dapat dikerjakan tanpa jaringan; <b>3)</b> terbitkan laporan PDF dan berkas Excel.</div>
+    <button class="btn btn-ok" id="btnStart" onclick="openPick()">Mulai Perhitungan</button>
     <div id="lastSesBox"></div>
     <div style="text-align:center;margin-top:14px">
       <a href="javascript:void(0)" onclick="toggleAdv()" id="advLink"
@@ -95,15 +104,15 @@ th{background:#eef2f7}
 
   <div class="card hide" id="advBox">
     <h3 style="margin-top:0">Menu Cost Control</h3>
-    <div class="note">Dipakai saat menyiapkan master bulanan, bukan saat menghitung di store.</div>
-    <button class="btn btn2" onclick="go('scImport')">Import Master Item dari file SOH</button>
-    <button class="btn btn2" onclick="exportMasterJson()">Buat File Master untuk Di-upload ke Server</button>
-    <button class="btn btn2" onclick="go('scFetch')">Perbarui / Ambil Ulang Master dari Server</button>
-    <button class="btn btn2" onclick="go('scBackup')">Backup / Restore / Gabung Data</button>
-    <button class="btn btn2" onclick="exportSelf()">Buat File HTML + Master (cadangan offline)</button>
+    <div class="note">Digunakan pada saat penyiapan data bulanan, bukan pada saat perhitungan berlangsung di store.</div>
+    <button class="btn btn2" onclick="go('scImport')">Impor Daftar Item dari Berkas SOH</button>
+    <button class="btn btn2" onclick="exportMasterJson()">Buat Berkas Daftar Item untuk Diunggah ke Server</button>
+    <button class="btn btn2" onclick="go('scFetch')">Perbarui Daftar Item dari Server</button>
+    <button class="btn btn2" onclick="go('scBackup')">Cadangkan, Pulihkan, dan Gabungkan Data</button>
+    <button class="btn btn2" onclick="exportSelf()">Buat Salinan Mandiri (cadangan tanpa jaringan)</button>
   </div>
   <div class="card">
-    <h3>Kesiapan alat ini</h3>
+    <h3>Status Kesiapan Perangkat</h3>
     <div id="masterList" class="note">—</div>
   </div>
 </div>
@@ -111,22 +120,22 @@ th{background:#eef2f7}
 <!-- ============ LAYAR 1 : IMPORT MASTER ============ -->
 <div id="scImport" class="hide">
   <div class="card">
-    <h2>Import Master Item dari SOH</h2>
-    <div class="note">Dilakukan <b>oleh Cost Control</b>, <b>sekali</b> sebelum SO dimulai.
-      Format didukung: <b>.txt</b> (VHP desktop/legacy) dan <b>.csv</b> (VHP cloud: TSBK, TPI, TSD).
-      File dibaca di alat ini saja, tidak dikirim ke mana pun.</div>
+    <h2>Impor Daftar Item dari Berkas SOH</h2>
+    <div class="note">Dikerjakan oleh <b>Cost Control</b>, satu kali sebelum perhitungan dimulai.
+      Format yang didukung: <b>.txt</b> untuk VHP desktop dan <b>.csv</b> untuk VHP cloud (TSBK, TPI, TSD).
+      Berkas diproses sepenuhnya di perangkat ini dan tidak dikirimkan ke pihak mana pun.</div>
 
     <label>Unit</label>
     <select id="impUnit"></select>
 
-    <label>File SOH (.txt / .csv)</label>
+    <label>Berkas SOH (.txt atau .csv)</label>
     <input type="file" id="impFile" accept=".txt,.csv,text/plain,text/csv" onchange="cekPeriode()">
 
-    <label>Periode (bulan SOH)</label>
+    <label>Periode Perhitungan</label>
     <select id="impPeriod"></select>
     <div id="periodInfo" class="note" style="margin-top:6px"></div>
 
-    <button class="btn" onclick="doImport()">Proses &amp; Simpan Master</button>
+    <button class="btn" onclick="doImport()">Proses dan Simpan Daftar Item</button>
     <div id="impResult" style="margin-top:12px"></div>
     <button class="btn btn2" onclick="go('scHome')">Kembali</button>
   </div>
@@ -150,17 +159,17 @@ th{background:#eef2f7}
 <!-- ============ LAYAR 2 : PILIH UNIT & STORE ============ -->
 <div id="scPick" class="hide">
   <div class="card">
-    <h2>Pilih Unit &amp; Store</h2>
-    <div class="note">Satu petugas = satu Store. Pembagian per store mencegah item terhitung dua kali
-      dan membuat hasil gabungan bisa dipisah per store.</div>
+    <h2>Pemilihan Unit dan Store</h2>
+    <div class="note">Setiap petugas menangani satu store. Pembagian ini mencegah item terhitung ganda
+      dan memungkinkan hasil gabungan dirinci kembali per store.</div>
     <label>Unit</label>
     <select id="pickUnit" onchange="fillStores()"></select>
-    <label>Store / Area</label>
+    <label>Store atau Area</label>
     <select id="pickStore"></select>
     <div id="pickInfo" style="margin-top:8px"></div>
-    <label>Nama Petugas (opsional, muncul di file export)</label>
-    <input type="text" id="pickUser" placeholder="contoh: Ans">
-    <button class="btn btn-ok" onclick="startSession()">Mulai Hitung</button>
+    <label>Nama Petugas (opsional, tercantum pada laporan)</label>
+    <input type="text" id="pickUser" placeholder="Nama pelaksana">
+    <button class="btn btn-ok" onclick="startSession()">Mulai Perhitungan</button>
     <button class="btn btn2" onclick="go('scHome')">Kembali</button>
   </div>
 </div>
@@ -170,20 +179,20 @@ th{background:#eef2f7}
   <div class="card" style="padding:10px 14px">
     <div style="display:flex;justify-content:space-between;align-items:center">
       <div><b id="sesLabel"></b><div class="meta" id="sesMeta"></div></div>
-      <button class="btn2 btn-sm" onclick="go('scHome')">Menu</button>
+      <button class="btn2 btn-sm" onclick="go('scHome')">Menu Utama</button>
     </div>
     <div class="bar"><i id="progBar" style="width:0%"></i></div>
     <div class="meta" id="progTxt" style="margin-top:4px"></div>
   </div>
 
   <div class="searchbar">
-    <input type="text" id="q" placeholder="Cari ArtNo atau nama item…" oninput="renderList()">
+    <input type="text" id="q" placeholder="Cari nomor artikel atau nama item" oninput="renderList()">
     <div class="chips" id="chipGrp"></div>
     <div class="chips" id="chipSec"></div>
     <div class="row" style="margin-top:6px">
-      <button class="btn2 btn-sm" id="btnOnlyEmpty" onclick="toggleEmpty()">Tampilkan: Semua</button>
-      <button class="btn2 btn-sm" id="btnCross" onclick="toggleCross()">SEMUA store unit</button>
-      <button class="btn-ok btn-sm" onclick="finishCount()">Selesai &amp; Export</button>
+      <button class="btn2 btn-sm" id="btnOnlyEmpty" onclick="toggleEmpty()">Tampilan: Seluruh item</button>
+      <button class="btn2 btn-sm" id="btnCross" onclick="toggleCross()">Cakupan: seluruh store</button>
+      <button class="btn-ok btn-sm" onclick="finishCount()">Selesai dan Laporan</button>
     </div>
   </div>
 
@@ -194,67 +203,75 @@ th{background:#eef2f7}
 <!-- ============ LAYAR 4 : REVIEW + REKOMENDASI FOTO + EXPORT ============ -->
 <div id="scDone" class="hide">
   <div class="card">
-    <h2>Ringkasan &amp; Export</h2>
+    <h2>Ringkasan Hasil Perhitungan</h2>
     <div id="sumBox"></div>
   </div>
   <div class="card">
-    <h2>Rekomendasi Sample Proof (5 item)</h2>
-    <div class="note">Dihitung dari data yang sudah Anda input: prioritas <b>selisih fisik vs sistem terbesar</b>,
-      lalu <b>nilai rupiah terbesar</b>. Foto item lain tetap bisa diambil sendiri kapan saja.</div>
+    <h2>Usulan Item untuk Bukti Foto</h2>
+    <div class="note">Disusun dari data yang telah Anda masukkan, dengan prioritas pada <b>selisih terbesar terhadap catatan sistem</b>,
+      kemudian <b>nilai rupiah tertinggi</b>. Pengambilan foto atas item lain tetap dapat dilakukan sewaktu-waktu.</div>
     <div id="recBox" style="margin-top:10px"></div>
   </div>
   <div class="card">
-    <h2>Export</h2>
+    <h2>Penerbitan Laporan</h2>
     <div id="priceWarn"></div>
-    <div class="note">Isi nama, lalu bubuhkan tanda tangan langsung di layar (opsional).
-      Tanda tangan ikut tercetak di PDF.</div>
+    <div class="note">Cantumkan nama, kemudian bubuhkan tanda tangan pada layar apabila diperlukan.
+      Tanda tangan akan tercetak pada laporan PDF.</div>
 
     <label>Petugas</label>
-    <input type="text" id="sgPetugas" placeholder="yang melakukan stock opname">
-    <canvas id="cvPetugas" class="sigpad"></canvas>
-    <button class="btn2 btn-sm" onclick="clearSig('Petugas')">Hapus tanda tangan</button>
+    <input type="text" id="sgPetugas" placeholder="Nama pelaksana perhitungan">
+    <div class="sigbox" id="pvPetugas" onclick="openSig('Petugas')">Ketuk untuk membubuhkan tanda tangan</div>
 
     <label>User</label>
-    <input type="text" id="sgUser" placeholder="pemilik / penanggung jawab store">
-    <canvas id="cvUser" class="sigpad"></canvas>
-    <button class="btn2 btn-sm" onclick="clearSig('User')">Hapus tanda tangan</button>
+    <input type="text" id="sgUser" placeholder="Nama penanggung jawab store">
+    <div class="sigbox" id="pvUser" onclick="openSig('User')">Ketuk untuk membubuhkan tanda tangan</div>
 
     <label>Cost Control</label>
-    <input type="text" id="sgCC" placeholder="pemeriksa">
-    <canvas id="cvCC" class="sigpad"></canvas>
-    <button class="btn2 btn-sm" onclick="clearSig('CC')">Hapus tanda tangan</button>
-    <button class="btn" onclick="previewPdf()">Lihat PDF dulu (preview)</button>
+    <input type="text" id="sgCC" placeholder="Nama pemeriksa">
+    <div class="sigbox" id="pvCC" onclick="openSig('CC')">Ketuk untuk membubuhkan tanda tangan</div>
+    <button class="btn" onclick="previewPdf()">Buka Laporan PDF</button>
     <div id="pdfPrev"></div>
-    <button class="btn" onclick="exportPdf()">Download PDF (laporan + tanda tangan + foto)</button>
-    <button class="btn" onclick="exportXlsx()">Download Excel (.xlsx)</button>
-    <button class="btn btn2" onclick="exportPhotos()">Download Semua Foto (.zip)</button>
-    <button class="btn btn2" onclick="exportJson()">Backup JSON (sesi ini)</button>
-    <button class="btn btn2" onclick="go('scMain')">Kembali Menghitung</button>
+    <button class="btn" onclick="exportXlsx()">Unduh Berkas Excel (.xlsx)</button>
+    <button class="btn btn2" onclick="exportPhotos()">Unduh Seluruh Foto (.zip)</button>
+    <button class="btn btn2" onclick="exportJson()">Cadangkan Sesi Ini (.json)</button>
+    <button class="btn btn2" onclick="go('scMain')">Kembali ke Perhitungan</button>
   </div>
 </div>
 
 <!-- ============ LAYAR 5 : BACKUP / RESTORE / GABUNG ============ -->
 <div id="scBackup" class="hide">
   <div class="card">
-    <h2>Backup / Restore / Gabung</h2>
-    <div class="note">Gunakan untuk pindah alat, cadangan berkala, atau menggabungkan hasil beberapa petugas
-      ke satu alat sebelum export.</div>
-    <button class="btn" onclick="exportAllJson()">Backup SEMUA data (JSON)</button>
-    <label>Restore / Gabung dari file JSON</label>
+    <h2>Pencadangan dan Penggabungan Data</h2>
+    <div class="note">Digunakan untuk perpindahan perangkat, pencadangan berkala, atau penggabungan hasil
+      beberapa petugas ke dalam satu perangkat sebelum laporan diterbitkan.</div>
+    <button class="btn" onclick="exportAllJson()">Cadangkan Seluruh Data (.json)</button>
+    <label>Pulihkan atau Gabungkan dari Berkas .json</label>
     <input type="file" id="resFile" accept=".json,application/json">
-    <div class="note" style="margin-top:6px">Qty dari file yang digabung akan <b>ditambahkan</b> bila
-      ArtNo + Store sama, agar hasil hitung dua petugas tidak saling menimpa.</div>
-    <button class="btn btn2" onclick="doRestore()">Proses File JSON</button>
+    <div class="note" style="margin-top:6px">Jumlah dari berkas yang digabungkan akan <b>ditambahkan</b> apabila
+      nomor artikel dan store sama, sehingga hasil perhitungan antar petugas tidak saling menimpa.</div>
+    <button class="btn btn2" onclick="doRestore()">Proses Berkas</button>
     <div id="resResult" style="margin-top:10px"></div>
     <button class="btn btn2" onclick="go('scHome')">Kembali</button>
   </div>
   <div class="card">
-    <h3>Pemakaian penyimpanan</h3>
+    <h3>Penggunaan Ruang Penyimpanan</h3>
     <div id="storageBox" class="note">—</div>
-    <button class="btn btn-warn" onclick="wipeSession()">Hapus data sesi aktif (hati-hati)</button>
+    <button class="btn btn-warn" onclick="wipeSession()">Hapus Data Sesi Aktif</button>
   </div>
 </div>
 
+</div>
+
+<div id="sigModal" class="sigmodal hide">
+  <div class="bar"><b id="sigTitle">Tanda Tangan</b>
+    <button class="btn2" onclick="closeSig()">Batal</button></div>
+  <div style="padding:6px 12px;font-size:12px;color:#6b7688">
+    Bubuhkan tanda tangan pada area putih di bawah ini menggunakan jari atau stylus.</div>
+  <canvas id="sigBig"></canvas>
+  <div class="foot">
+    <button class="btn2" onclick="clearSigBig()">Bersihkan</button>
+    <button class="btn-ok" onclick="saveSig()">Simpan</button>
+  </div>
 </div>
 
 <input type="file" id="camIn" accept="image/*" capture="environment" class="hide">
@@ -447,17 +464,17 @@ function ctxCheck(){
   var el=document.getElementById('ctxWarn'), inFrame=false;
   try{ inFrame = (window.self !== window.top); }catch(e){ inFrame=true; }
   if(inFrame){
-    el.innerHTML = '<b>⚠️ FILE INI SEDANG DI-PREVIEW DI DALAM APLIKASI LAIN.</b><br>'+
-      'Penyimpanan otomatis kemungkinan besar TIDAK berfungsi dan data hitung bisa hilang.<br>'+
-      '<b>Download dulu file HTML ini</b>, lalu buka langsung dari file manager / browser HP.';
+    el.innerHTML = '<b>Perhatian: berkas ini sedang ditampilkan di dalam aplikasi lain.</b><br>'+
+      'Penyimpanan otomatis kemungkinan tidak berfungsi sehingga data perhitungan dapat hilang.<br>'+
+      'Unduh berkas terlebih dahulu, kemudian buka langsung melalui peramban perangkat Anda.';
   } else if(location.protocol.indexOf('http')===0){
-    el.innerHTML = '<b>Mode web (GitHub Pages).</b> Buka halaman ini <b>satu kali saat ada sinyal</b> — '+
-      'app akan disimpan di alat Anda dan tetap bisa dibuka di area tanpa sinyal (gudang/basement).<br>'+
-      'Disarankan: menu browser → <b>Tambahkan ke Layar Utama</b>. Tetap lakukan <b>Backup JSON</b> berkala.';
+    el.innerHTML = '<b>Aplikasi berjalan dalam mode daring.</b> Buka halaman ini satu kali selagi jaringan tersedia; '+
+      'aplikasi akan tersimpan pada perangkat dan tetap dapat digunakan di area tanpa jaringan seperti gudang atau basement.<br>'+
+      'Disarankan menambahkan aplikasi ke layar utama melalui menu peramban, serta melakukan pencadangan data secara berkala.';
   } else {
-    el.innerHTML = '<b>Cara pakai yang benar:</b> file ini harus di-<b>download</b> dan dibuka langsung di browser '+
-      '(Chrome/Safari). Data tersimpan otomatis di alat ini. Tetap lakukan <b>Backup JSON</b> berkala — '+
-      'penyimpanan browser bisa terhapus bila aplikasi dibersihkan atau (di iPhone) lama tidak dibuka.';
+    el.innerHTML = '<b>Petunjuk penggunaan:</b> berkas ini perlu diunduh dan dibuka langsung melalui peramban '+
+      '(Chrome atau Safari). Data tersimpan otomatis pada perangkat ini. Lakukan pencadangan secara berkala, '+
+      'karena penyimpanan peramban dapat terhapus apabila data aplikasi dibersihkan atau perangkat lama tidak digunakan.';
   }
 }
 
@@ -516,7 +533,7 @@ function doImport(){
   var period = document.getElementById('impPeriod').value.trim();
   var f = document.getElementById('impFile').files[0];
   var box = document.getElementById('impResult');
-  if(!f){ box.innerHTML='<div class="err">File belum dipilih.</div>'; return; }
+  if(!f){ box.innerHTML='<div class="err">Berkas belum dipilih.</div>'; return; }
   if(!period){ box.innerHTML='<div class="err">Periode belum dipilih.</div>'; return; }
   var rd = new FileReader();
   rd.onload = function(){
@@ -565,9 +582,9 @@ function refreshLastSession(){
       if(!m){ box.innerHTML=''; return; }
       box.innerHTML =
         '<button class="btn btn-ok" style="background:#0b6bcb" onclick="resumeLast()">'+
-        '▶ Lanjutkan: '+ls.unit+' / '+ls.store+'</button>'+
-        '<div class="note" style="text-align:center;margin-top:4px">sesi terakhir Anda — data hitung tersimpan</div>';
-      document.getElementById('btnStart').textContent = '2. Mulai sesi lain (pilih unit & store)';
+        'Lanjutkan: '+ls.unit+' / '+ls.store+'</button>'+
+        '<div class="note" style="text-align:center;margin-top:4px">Sesi terakhir Anda, seluruh data perhitungan tersimpan</div>';
+      document.getElementById('btnStart').textContent = 'Mulai Sesi Lain (pilih unit dan store)';
     });
   });
 }
@@ -589,8 +606,8 @@ function refreshHome(){
   all('master').then(function(ms){
     var box=document.getElementById('masterList');
     if(!ms.length){
-      box.innerHTML='<div class="warn">Belum ada daftar item di alat ini. Tekan <b>Mulai Stock Opname</b> '+
-        'dan pilih unit <b>saat masih ada sinyal</b> — daftar item akan terunduh otomatis.</div>';
+      box.innerHTML='<div class="warn">Belum terdapat daftar item pada perangkat ini. Pilih <b>Mulai Perhitungan</b> '+
+        'dan tentukan unit selagi jaringan tersedia; daftar item akan terunduh secara otomatis.</div>';
       return;
     }
     var h='';
@@ -599,8 +616,8 @@ function refreshHome(){
       h += '<div style="padding:6px 0;border-bottom:1px solid #eef2f7">'+
            (lama?'⚠️ ':'✅ ')+'<b>'+m.unit+'</b> — periode <b>'+periodLabel(m.period)+'</b>, '+
            m.items.length+' item'+(lama?'<br><span style="color:#b3401a;font-size:12px">'+
-           'periode ini bukan bulan berjalan — pastikan sudah diperbarui Cost Control</span>':
-           '<br><span style="color:#0d8f4f;font-size:12px">siap dipakai tanpa internet</span>')+'</div>';
+           'Periode ini bukan bulan berjalan. Pastikan Cost Control telah memperbarui daftar item.</span>':
+           '<br><span style="color:#0d8f4f;font-size:12px">Siap digunakan tanpa jaringan</span>')+'</div>';
     });
     box.innerHTML=h;
   });
@@ -760,13 +777,13 @@ function setGrup(x){ S.grup=x; S.limit=60; buildChips(); renderList(); }
 function setSec(x){ S.sec=x; S.limit=60; buildChips(); renderList(); }
 function toggleCross(){
   S.cross = !S.cross; S.limit=60;
-  document.getElementById('btnCross').textContent = S.cross ? 'SEMUA store unit' : 'Store ini saja';
+  document.getElementById('btnCross').textContent = S.cross ? 'Cakupan: seluruh store' : 'Cakupan: store ini';
   buildChips(); renderList();
 }
-var MODES=['Semua','Belum diisi','Ada stok sistem'];
+var MODES=['Seluruh item','Belum dihitung','Bersaldo di sistem'];
 function toggleEmpty(){
   S.mode = ((S.mode||0)+1) % 3; S.limit=60;
-  document.getElementById('btnOnlyEmpty').textContent = 'Tampilkan: '+MODES[S.mode];
+  document.getElementById('btnOnlyEmpty').textContent = 'Tampilan: '+MODES[S.mode];
   renderList();
 }
 
@@ -796,9 +813,9 @@ function renderList(){
        '<div class="desc">'+esc(i.desc)+'</div>'+
        '<div class="meta">'+esc(i.section)+(i.grup==='FG'?' • FG':'')+
          (i.foreign?' • <b style="color:#b3401a">terdaftar di '+esc(i.foreign)+' (sistem '+fmt(i.sysAtHome)+')</b>':'')+
-         (i.partial?' • <b style="color:#c0392b">harga 0, cek manual</b>':'')+'</div>'+
+         (i.partial?' • <b style="color:#c0392b">harga belum tersedia</b>':'')+'</div>'+
        '<div class="qtyline">'+
-         '<input type="number" inputmode="decimal" step="any" id="in_'+i.art+'" placeholder="qty fisik '+esc(i.uom)+'"'+
+         '<input type="number" inputmode="decimal" step="any" id="in_'+i.art+'" placeholder="Jumlah fisik '+esc(i.uom)+'"'+
            ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();addQty(\''+i.art+'\',true);}">'+
          '<button class="btn-ok btn-sm" onclick="addQty(\''+i.art+'\')">+</button>'+
          '<button class="btn2 btn-sm" onclick="takePhoto(\''+i.art+'\')">📷'+(adaFoto?'✓':'')+'</button>'+
@@ -806,14 +823,14 @@ function renderList(){
        '</div>'+
        '<div class="total" id="tot_'+i.art+'">'+totalHtml(i.art)+'</div>'+
        '<div id="nt_'+i.art+'" class="'+(adaNote?'':'hide')+'">'+
-         '<input type="text" placeholder="catatan…" value="'+esc(c&&c.note?c.note:'')+
+         '<input type="text" placeholder="Keterangan" value="'+esc(c&&c.note?c.note:'')+
          '" onchange="setNote(\''+i.art+'\',this.value)" style="margin-top:6px;font-size:14px;padding:8px"></div>'+
        '<div class="thumbs" data-th="'+i.art+'">'+thumbHtml(i.art)+'</div>'+
        '</div>';
   }
-  document.getElementById('list').innerHTML = h || '<div class="card note">Tidak ada item yang cocok.</div>';
+  document.getElementById('list').innerHTML = h || '<div class="card note">Tidak ada item yang sesuai dengan pencarian atau penyaringan saat ini.</div>';
   document.getElementById('listMore').innerHTML = f.length>S.limit ?
-    '<button class="btn2" onclick="S.limit+=100;renderList()">Tampilkan lebih banyak ('+(f.length-S.limit)+' lagi)</button>' :
+    '<button class="btn2" onclick="S.limit+=100;renderList()">Tampilkan item berikutnya ('+(f.length-S.limit)+' item tersisa)</button>' :
     (f.length+' item ditampilkan');
   updProgress();
 }
@@ -832,7 +849,7 @@ function updProgress(){
   S.items.forEach(function(i){ if(S.counts[i.art]) done++; });
   var pc = tot? Math.round(done/tot*100):0;
   document.getElementById('progBar').style.width = pc+'%';
-  document.getElementById('progTxt').textContent = done+' dari '+tot+' item sudah diisi ('+pc+'%)';
+  document.getElementById('progTxt').textContent = done+' dari '+tot+' item telah dihitung ('+pc+'%)';
 }
 
 /* --- input qty: MENJUMLAH (item bisa ada di 2 tempat dalam satu store) --- */
@@ -841,8 +858,8 @@ function updProgress(){
 function totalHtml(art){
   var c=S.counts[art]; if(!c) return '';
   var m=S.metaCross[art]||{};
-  return 'Total: '+fmt(c.qty)+' '+esc(m.uom||'')+' ('+c.n+'x) '+
-    '<a href="javascript:void(0)" style="font-size:12px;color:#b3401a" onclick="resetQty(\''+art+'\')">reset</a>';
+  return 'Jumlah tercatat: '+fmt(c.qty)+' '+esc(m.uom||'')+' ('+c.n+'x) '+
+    '<a href="javascript:void(0)" style="font-size:12px;color:#b3401a" onclick="resetQty(\''+art+'\')">hapus</a>';
 }
 function refreshRow(art){
   var it=document.getElementById('it_'+art);
@@ -869,7 +886,7 @@ function addQty(art, lanjut){
   if(lanjut) focusNext(art);
 }
 function resetQty(art){
-  if(!confirm('Hapus hasil hitung item '+art+'?')) return;
+  if(!confirm('Hapus hasil perhitungan untuk item '+art+'?')) return;
   delete S.counts[art];
   del('counts', ck(art)).then(function(){ refreshRow(art); });
 }
@@ -881,7 +898,7 @@ function setNote(art, val){
 /* --- foto: kompres 800px / JPEG 0.6, maksimal 2 per item --- */
 var camArt=null;
 function takePhoto(art){
-  if((S.photos[art]||[]).length>=2){ alert('Maksimal 2 foto per item.'); return; }
+  if((S.photos[art]||[]).length>=2){ alert('Setiap item dibatasi maksimal dua foto.'); return; }
   camArt=art; var el=document.getElementById('camIn'); el.value=''; el.click();
 }
 document.getElementById('camIn').addEventListener('change', function(e){
@@ -911,7 +928,7 @@ function gambarUlangThumb(art){
   for(var i=0;i<els.length;i++) els[i].innerHTML=thumbHtml(art);
   var btn=document.querySelectorAll('[data-fotobtn="'+art+'"]');
   for(var j=0;j<btn.length;j++){
-    btn[j].outerHTML = (S.photos[art]||[]).length ? '<div class="total">✔ sudah ada foto</div>' : btn[j].outerHTML;
+    btn[j].outerHTML = (S.photos[art]||[]).length ? '<div class="total">Foto telah tersedia</div>' : btn[j].outerHTML;
   }
 }
 function delPhoto(art, idx){
@@ -931,13 +948,13 @@ function finishCount(){
   document.getElementById('sumBox').innerHTML =
     '<table><tr><th>Unit / Store</th><td>'+S.unit+' / '+esc(S.store)+'</td></tr>'+
     '<tr><th>Periode</th><td><b>'+periodLabel(S.period)+'</b></td></tr>'+
-    '<tr><th>Item terisi</th><td>'+rows.length+' dari '+S.items.length+'</td></tr>'+
-    '<tr><th>Nilai SO fisik</th><td><b>Rp '+fmt(Math.round(tot))+'</b></td></tr>'+
-    '<tr><th>Item selisih vs sistem</th><td>'+nSelisih+'</td></tr>'+
-    '<tr><th>Item berfoto</th><td>'+nFoto+'</td></tr>'+
-    '<tr><th>Item dari store lain</th><td>'+rows.filter(function(r){return r.homeStore;}).length+'</td></tr></table>';
+    '<tr><th>Item telah dihitung</th><td>'+rows.length+' dari '+S.items.length+'</td></tr>'+
+    '<tr><th>Nilai persediaan fisik</th><td><b>Rp '+fmt(Math.round(tot))+'</b></td></tr>'+
+    '<tr><th>Item berselisih dengan sistem</th><td>'+nSelisih+'</td></tr>'+
+    '<tr><th>Item dengan bukti foto</th><td>'+nFoto+'</td></tr>'+
+    '<tr><th>Item milik store lain</th><td>'+rows.filter(function(r){return r.homeStore;}).length+'</td></tr></table>';
   var sp=document.getElementById('sgPetugas'); if(sp && !sp.value) sp.value = S.user||'';
-  setTimeout(initSigPads, 60);
+  muatSig();
   var tanpaHarga = rows.length && !rows.some(function(r){ return r.price>0; });
   document.getElementById('priceWarn').innerHTML = tanpaHarga ?
     '<div class="warn">Master dari server tidak memuat harga, jadi kolom <b>Price</b> dan <b>Amount</b> '+
@@ -946,13 +963,13 @@ function finishCount(){
   document.getElementById('recBox').innerHTML = rec.length ? rec.map(function(r){
     var has=(S.photos[r.art]||[]).length>0;
     return '<div class="item"><div class="art">'+r.art+'</div><div class="desc">'+esc(r.desc)+'</div>'+
-      '<div class="meta">Fisik '+fmt(r.qty)+' vs Sistem '+fmt(r.qtySys)+' → selisih <b>'+fmt(r.selisih)+'</b> '+esc(r.uom)+
+      '<div class="meta">Fisik '+fmt(r.qty)+' berbanding sistem '+fmt(r.qtySys)+', selisih <b>'+fmt(r.selisih)+'</b> '+esc(r.uom)+
       ' • nilai Rp '+fmt(Math.round(r.amount))+'</div>'+
-      '<div class="meta" style="margin-top:4px">Alasan: '+r.why+'</div>'+
-      (has?'<div class="total">✔ sudah ada foto</div>':
-        '<button class="btn2 btn-sm" data-fotobtn="'+r.art+'" style="margin-top:6px" onclick="takePhoto(\''+r.art+'\')">📷 Ambil foto sekarang</button>')+
+      '<div class="meta" style="margin-top:4px">Dasar usulan: '+r.why+'</div>'+
+      (has?'<div class="total">Foto telah tersedia</div>':
+        '<button class="btn2 btn-sm" data-fotobtn="'+r.art+'" style="margin-top:6px" onclick="takePhoto(\''+r.art+'\')">Ambil Foto</button>')+
       '<div class="thumbs" data-th="'+r.art+'">'+thumbHtml(r.art)+'</div></div>';
-  }).join('') : '<div class="note">Belum ada data hitung.</div>';
+  }).join('') : '<div class="note">Belum terdapat data perhitungan.</div>';
   go('scDone');
 }
 function collect(){
@@ -975,12 +992,12 @@ function recommend(rows){
       return pakaiHarga ? Math.abs(y.selisih*y.price)-Math.abs(x.selisih*x.price)
                         : Math.abs(y.selisih)-Math.abs(x.selisih); })
       .filter(function(r){ return Math.abs(r.selisih)>0.0001; }).slice(0,3);
-  a.forEach(function(r){ r.why = pakaiHarga ? 'selisih nilai terbesar' : 'selisih qty terbesar vs sistem'; });
+  a.forEach(function(r){ r.why = pakaiHarga ? 'selisih nilai terbesar terhadap sistem' : 'selisih jumlah terbesar terhadap sistem'; });
   var used={}; a.forEach(function(r){ used[r.art]=1; });
   var b = rows.slice().sort(function(x,y){
       return pakaiHarga ? y.amount-x.amount : y.qty-x.qty; })
       .filter(function(r){ return !used[r.art] && (pakaiHarga ? r.amount>0 : r.qty>0); }).slice(0,5-a.length);
-  b.forEach(function(r){ r.why = pakaiHarga ? 'nilai rupiah terbesar' : 'qty fisik terbesar'; });
+  b.forEach(function(r){ r.why = pakaiHarga ? 'nilai rupiah tertinggi' : 'jumlah fisik terbanyak'; });
   return a.concat(b);
 }
 
@@ -1050,7 +1067,7 @@ var HEADER = ['ArtNo','Description','Unit','Qty Fisik','Price','Amount','Catatan
               'Store','Qty Sistem','Selisih','Terdaftar di Store'];
 function exportXlsx(){
   var rows=collect();
-  if(!rows.length){ alert('Belum ada data untuk di-export.'); return; }
+  if(!rows.length){ alert('Belum terdapat data yang dapat dilaporkan.'); return; }
   var data=[HEADER];
   rows.forEach(function(r){
     data.push([r.art, r.desc, r.uom, r.qty, r.price, Math.round(r.amount*100)/100,
@@ -1068,7 +1085,7 @@ function exportPhotos(){
       files.push({name:S.unit+'_'+art+(idx?('_'+(idx+1)):'')+'.jpg', data:b64ToU8(b64)}); n++;
     });
   });
-  if(!n){ alert('Belum ada foto pada sesi ini.'); return; }
+  if(!n){ alert('Belum terdapat foto pada sesi ini.'); return; }
   dl(makeZip(files), 'FOTO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.zip');
 }
 function exportJson(){
@@ -1118,7 +1135,7 @@ function unpackMaster(o){
 /* Cost Control: hasilkan satu file per unit untuk di-upload ke folder master/ */
 function exportMasterJson(){
   all('master').then(function(ms){
-    if(!ms.length){ alert('Belum ada master. Lakukan Import Master Item dulu.'); return; }
+    if(!ms.length){ alert('Daftar item belum tersedia. Lakukan impor berkas SOH terlebih dahulu.'); return; }
     ms.forEach(function(m, k){
       setTimeout(function(){
         var txt = JSON.stringify(packMaster(m));
@@ -1156,7 +1173,7 @@ function fetchMaster(unitArg){
        Tim penerima tidak perlu import apa pun. --- */
 function exportSelf(){
   all('master').then(function(ms){
-    if(!ms.length){ alert('Belum ada master. Lakukan Import Master Item dulu.'); return; }
+    if(!ms.length){ alert('Daftar item belum tersedia. Lakukan impor berkas SOH terlebih dahulu.'); return; }
     var payload = 'EMBEDDED_MASTERS = ' + JSON.stringify(ms).replace(/<\//g,'<\\/') + '; /*__EMBED_SLOT__*/';
     if(SELF_HTML.indexOf('/*__EMBED_SLOT__*/') < 0){ alert('Gagal: penanda embed tidak ditemukan.'); return; }
     var out = SELF_HTML.replace('/*__EMBED_SLOT__*/', payload);
@@ -1183,53 +1200,66 @@ function loadEmbedded(){
    Coretan disimpan sebagai gambar dan ikut dicetak di PDF.
    ===================================================================== */
 var SIG={};                                   /* {Petugas:dataURL, User:…, CC:…} */
+var sigAktif=null, sigCtx=null, sigNulis=false;
 function sigKey(){ return 'sign|'+S.unit+'|'+S.period+'|'+S.store; }
-function initSigPads(){
-  ['Petugas','User','CC'].forEach(function(nm){
-    var cv=document.getElementById('cv'+nm); if(!cv || cv.dataset.siap) return;
-    cv.dataset.siap='1';
-    var rect=cv.getBoundingClientRect();
-    cv.width = Math.max(300, Math.round(rect.width||320)); cv.height=120;
-    var g=cv.getContext('2d');
-    g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height);
-    g.lineWidth=2.2; g.lineCap='round'; g.strokeStyle='#111';
-    var nulis=false;
-    function pos(e){
-      var r=cv.getBoundingClientRect();
-      var t=(e.touches&&e.touches[0])||e;
-      return {x:(t.clientX-r.left)*cv.width/r.width, y:(t.clientY-r.top)*cv.height/r.height};
-    }
-    function mulai(e){ e.preventDefault(); nulis=true; var p=pos(e); g.beginPath(); g.moveTo(p.x,p.y); }
-    function gerak(e){ if(!nulis) return; e.preventDefault(); var p=pos(e); g.lineTo(p.x,p.y); g.stroke(); }
-    function henti(){ if(!nulis) return; nulis=false; simpanSig(nm); }
-    cv.addEventListener('mousedown',mulai); cv.addEventListener('mousemove',gerak);
-    window.addEventListener('mouseup',henti);
-    cv.addEventListener('touchstart',mulai,{passive:false});
-    cv.addEventListener('touchmove',gerak,{passive:false});
-    cv.addEventListener('touchend',henti);
-  });
-  /* muat tanda tangan yang pernah dibuat pada sesi ini */
+
+/* Memuat tanda tangan yang sudah pernah dibubuhkan pada sesi ini */
+function muatSig(){
   get('meta', sigKey()).then(function(o){
-    if(!o) return;
-    SIG=o.sig||{};
-    ['Petugas','User','CC'].forEach(function(nm){
-      if(!SIG[nm]) return;
-      var cv=document.getElementById('cv'+nm); if(!cv) return;
-      var im=new Image(); im.onload=function(){ cv.getContext('2d').drawImage(im,0,0,cv.width,cv.height); }; im.src=SIG[nm];
-    });
+    SIG = (o && o.sig) || {};
+    ['Petugas','User','CC'].forEach(tampilkanSig);
   });
 }
-function simpanSig(nm){
-  var cv=document.getElementById('cv'+nm); if(!cv) return;
-  SIG[nm]=cv.toDataURL('image/jpeg',0.85);
+function tampilkanSig(nm){
+  var box=document.getElementById('pv'+nm); if(!box) return;
+  box.innerHTML = SIG[nm] ? '<img src="'+SIG[nm]+'">' : 'Ketuk untuk membubuhkan tanda tangan';
+}
+function openSig(nm){
+  sigAktif=nm;
+  document.getElementById('sigTitle').textContent='Tanda Tangan — '+(nm==='CC'?'Cost Control':nm);
+  var m=document.getElementById('sigModal'); m.classList.remove('hide');
+  setTimeout(function(){
+    var cv=document.getElementById('sigBig');
+    var r=cv.getBoundingClientRect();
+    cv.width=Math.round(r.width); cv.height=Math.round(r.height);
+    sigCtx=cv.getContext('2d');
+    sigCtx.fillStyle='#fff'; sigCtx.fillRect(0,0,cv.width,cv.height);
+    sigCtx.lineWidth=3; sigCtx.lineCap='round'; sigCtx.lineJoin='round'; sigCtx.strokeStyle='#111';
+    if(SIG[nm]){ var im=new Image(); im.onload=function(){
+      var sc=Math.min(cv.width/im.width, cv.height/im.height);
+      sigCtx.drawImage(im,0,0,im.width*sc,im.height*sc); }; im.src=SIG[nm]; }
+  }, 40);
+}
+function closeSig(){ document.getElementById('sigModal').classList.add('hide'); sigAktif=null; }
+function clearSigBig(){
+  var cv=document.getElementById('sigBig'); if(!sigCtx) return;
+  sigCtx.fillStyle='#fff'; sigCtx.fillRect(0,0,cv.width,cv.height);
+  sigCtx.lineWidth=3; sigCtx.lineCap='round'; sigCtx.lineJoin='round'; sigCtx.strokeStyle='#111';
+}
+function saveSig(){
+  if(!sigAktif) return closeSig();
+  var cv=document.getElementById('sigBig');
+  SIG[sigAktif]=cv.toDataURL('image/jpeg',0.85);
   put('meta', {key:sigKey(), sig:SIG});
+  tampilkanSig(sigAktif);
+  closeSig();
 }
-function clearSig(nm){
-  var cv=document.getElementById('cv'+nm); if(!cv) return;
-  var g=cv.getContext('2d'); g.fillStyle='#fff'; g.fillRect(0,0,cv.width,cv.height);
-  g.lineWidth=2.2; g.lineCap='round'; g.strokeStyle='#111';
-  delete SIG[nm]; put('meta', {key:sigKey(), sig:SIG});
-}
+/* menggambar pada kanvas layar penuh */
+(function(){
+  var cv=document.getElementById('sigBig'); if(!cv) return;
+  function titik(e){
+    var r=cv.getBoundingClientRect(); var t=(e.touches&&e.touches[0])||e;
+    return {x:(t.clientX-r.left)*cv.width/r.width, y:(t.clientY-r.top)*cv.height/r.height};
+  }
+  function mulai(e){ if(!sigCtx) return; e.preventDefault(); sigNulis=true; var p=titik(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); }
+  function gerak(e){ if(!sigNulis||!sigCtx) return; e.preventDefault(); var p=titik(e); sigCtx.lineTo(p.x,p.y); sigCtx.stroke(); }
+  function henti(){ sigNulis=false; }
+  cv.addEventListener('mousedown',mulai); cv.addEventListener('mousemove',gerak);
+  window.addEventListener('mouseup',henti);
+  cv.addEventListener('touchstart',mulai,{passive:false});
+  cv.addEventListener('touchmove',gerak,{passive:false});
+  cv.addEventListener('touchend',henti);
+})();
 
 /* =====================================================================
    BLOK 10C : PEMBUAT PDF (tanpa library luar)
@@ -1483,19 +1513,24 @@ function buildPdf(rows, meta){
 /* Preview: PDF dibuat lalu ditampilkan di layar. Sebagian browser HP tidak bisa
    menampilkan PDF di dalam halaman; disediakan tombol buka di tab baru. */
 var PDFURL=null;
+/* Laporan PDF dibuka langsung di peramban. Menu unduh dan bagikan disediakan oleh
+   penampil PDF bawaan perangkat. Bila jendela baru diblokir, berkas diunduh otomatis. */
 function previewPdf(){
   var blob=pdfBlob(); if(!blob) return;
   if(PDFURL) URL.revokeObjectURL(PDFURL);
   PDFURL=URL.createObjectURL(blob);
+  var nama='SO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.pdf';
+  var w=window.open(PDFURL,'_blank');
+  if(!w){ dl(blob, nama); }
   document.getElementById('pdfPrev').innerHTML =
-    '<div class="note" style="margin-top:8px">Periksa dulu isinya. Bila kosong/abu-abu di HP, '+
-    'tekan <b>Buka di tab baru</b>.</div>'+
+    '<div class="note" style="margin-top:8px">Laporan dibuka pada tab baru. Gunakan menu unduh atau bagikan '+
+    'pada penampil PDF perangkat Anda untuk menyimpan berkas.</div>'+
     '<iframe src="'+PDFURL+'" style="width:100%;height:420px;border:1px solid #c6ced9;border-radius:8px;margin-top:6px"></iframe>'+
-    '<button class="btn btn2" onclick="window.open(PDFURL,\'_blank\')">Buka di tab baru</button>';
+    '<button class="btn btn2" onclick="window.open(PDFURL,\'_blank\')">Buka Kembali pada Tab Baru</button>';
 }
 function pdfBlob(){
   var rows=collect();
-  if(!rows.length){ alert('Belum ada data untuk di-export.'); return null; }
+  if(!rows.length){ alert('Belum terdapat data yang dapat dilaporkan.'); return null; }
   rows.sort(function(a,b){ return a.art<b.art?-1:1; });
   var meta={
     unit:S.unit, store:S.store, period:S.period, periodLabel:periodLabel(S.period),
@@ -1506,20 +1541,16 @@ function pdfBlob(){
   };
   return buildPdf(rows, meta);
 }
-function exportPdf(){
-  var b=pdfBlob(); if(!b) return;
-  dl(b, 'SO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.pdf');
-}
 
 /* =====================================================================
    BLOK 11 : RESTORE / GABUNG
    ===================================================================== */
 function doRestore(){
   var f=document.getElementById('resFile').files[0], box=document.getElementById('resResult');
-  if(!f){ box.innerHTML='<div class="err">File belum dipilih.</div>'; return; }
+  if(!f){ box.innerHTML='<div class="err">Berkas belum dipilih.</div>'; return; }
   var rd=new FileReader();
   rd.onload=function(){
-    var o; try{ o=JSON.parse(rd.result); }catch(e){ box.innerHTML='<div class="err">File JSON tidak valid.</div>'; return; }
+    var o; try{ o=JSON.parse(rd.result); }catch(e){ box.innerHTML='<div class="err">Berkas tidak dapat dibaca. Pastikan berkas .json yang dipilih benar.</div>'; return; }
     var counts=o.counts||[], photos=o.photos||[], masters=o.masters||[];
     var jobs=[], merged=0, added=0;
     masters.forEach(function(m){ jobs.push(put('master', {unit:m.unit, period:m.period, importedAt:new Date().toISOString(), items:m.items})); });
@@ -1545,26 +1576,26 @@ function refreshStorage(){
   var box=document.getElementById('storageBox');
   Promise.all([all('counts'), all('photos')]).then(function(r){
     var bytes=0; r[1].forEach(function(p){ bytes += p.data.length*0.75; });
-    var h='Baris hitung tersimpan: <b>'+r[0].length+'</b><br>Foto tersimpan: <b>'+r[1].length+
+    var h='Baris perhitungan tersimpan: <b>'+r[0].length+'</b><br>Foto tersimpan: <b>'+r[1].length+
           '</b> (± '+(bytes/1048576).toFixed(1)+' MB)';
     if(navigator.storage && navigator.storage.estimate){
       navigator.storage.estimate().then(function(e){
-        box.innerHTML = h+'<br>Kuota browser: ± '+(e.usage/1048576).toFixed(1)+' MB terpakai dari '+
-          (e.quota/1048576).toFixed(0)+' MB.'+'<br>Perkiraan ±0,2 MB per foto (resolusi 1200px, kualitas tinggi).'+
-          ((bytes/1048576)>50?'<br><b>⚠️ Foto sudah >50 MB — segera export PDF/ZIP lalu backup.</b>':'');
+        box.innerHTML = h+'<br>Kuota peramban: ± '+(e.usage/1048576).toFixed(1)+' MB terpakai dari '+
+          (e.quota/1048576).toFixed(0)+' MB.'+'<br>Perkiraan ±0,2 MB per foto pada resolusi 1200 piksel.'+
+          ((bytes/1048576)>50?'<br><b>Perhatian: berkas foto telah melampaui 50 MB. Segera terbitkan laporan dan lakukan pencadangan.</b>':'');
       });
     } else box.innerHTML=h;
   });
 }
 function wipeSession(){
-  if(!S.unit){ alert('Tidak ada sesi aktif.'); return; }
+  if(!S.unit){ alert('Tidak terdapat sesi aktif.'); return; }
   if(!confirm('Hapus SEMUA hasil hitung & foto untuk '+S.unit+' / '+S.store+' periode '+S.period+'? Tidak bisa dibatalkan.')) return;
   Promise.all([all('counts'), all('photos')]).then(function(r){
     var jobs=[];
     r[0].forEach(function(c){ if(c.unit===S.unit&&c.store===S.store&&c.period===S.period) jobs.push(del('counts', c.key)); });
     r[1].forEach(function(p){ if(p.unit===S.unit&&p.store===S.store&&p.period===S.period) jobs.push(del('photos', p.key)); });
     return Promise.all(jobs);
-  }).then(function(){ S.counts={}; S.photos={}; refreshStorage(); alert('Data sesi dihapus.'); });
+  }).then(function(){ S.counts={}; S.photos={}; refreshStorage(); alert('Data sesi telah dihapus.'); });
 }
 
 /* =====================================================================
@@ -1577,8 +1608,8 @@ if('serviceWorker' in navigator && location.protocol.indexOf('http')===0){
 ctxCheck(); fillUnitSelects(); fillPeriods();
 dbOpen().then(loadEmbedded).then(function(){ refreshHome(); }).catch(function(e){
   document.getElementById('ctxWarn').innerHTML =
-    '<b>⚠️ Penyimpanan browser tidak bisa dibuka ('+e+').</b> Data hitung TIDAK akan tersimpan. '+
-    'Pastikan file di-download dan dibuka langsung di browser, bukan mode penyamaran/private.';
+    '<b>Penyimpanan peramban tidak dapat diakses ('+e+').</b> Data perhitungan tidak akan tersimpan. '+
+    'Pastikan berkas dibuka langsung melalui peramban dan tidak dalam mode penyamaran.';
 });
 </script>
 </body>
