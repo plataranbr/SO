@@ -34,14 +34,19 @@ button{font-size:16px;font-weight:600;border:0;border-radius:8px;padding:14px 16
 .ok{background:#e8f6ee;border-left:4px solid #0d8f4f;padding:10px;border-radius:6px;font-size:13px}
 .hide{display:none!important}
 /* daftar item */
-.item{background:#fff;border-radius:10px;padding:12px;margin-bottom:10px;box-shadow:0 1px 3px rgba(0,0,0,.08)}
-.item.done{border-left:5px solid #0d8f4f}
-.art{font-size:22px;font-weight:800;letter-spacing:1px;color:#123a5e}
-.desc{font-size:15px;margin:2px 0 4px}
-.meta{font-size:12px;color:#6b7688}
-.qtyline{display:flex;gap:8px;align-items:center;margin-top:8px}
-.qtyline input{flex:1}
-.total{font-size:14px;font-weight:700;color:#0d8f4f;margin-top:6px}
+.item{background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.07)}
+.item.done{border-left:4px solid #0d8f4f}
+.hdr{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.art{font-size:15px;font-weight:800;letter-spacing:.5px;color:#123a5e;font-family:ui-monospace,Menlo,Consolas,monospace}
+.sys{font-size:12px;color:#98a2b3;white-space:nowrap}
+.sys.has{color:#0b6bcb;font-weight:700}
+.desc{font-size:14px;margin:1px 0 2px;line-height:1.25}
+.meta{font-size:11px;color:#8a93a3}
+.qtyline{display:flex;gap:6px;align-items:center;margin-top:6px}
+.qtyline input{flex:1;padding:9px 10px}
+.qtyline button{padding:9px 11px;font-size:14px}
+.total{font-size:13px;font-weight:700;color:#0d8f4f;margin-top:4px}
+.thumb img{width:52px;height:52px}
 .thumbs{display:flex;gap:6px;margin-top:8px;flex-wrap:wrap}
 .thumb{position:relative}
 .thumb img{width:64px;height:64px;object-fit:cover;border-radius:6px;border:1px solid #c6ced9}
@@ -172,6 +177,7 @@ th{background:#eef2f7}
     <div class="chips" id="chipSec"></div>
     <div class="row" style="margin-top:6px">
       <button class="btn2 btn-sm" id="btnOnlyEmpty" onclick="toggleEmpty()">Tampilkan: Semua</button>
+      <button class="btn2 btn-sm" id="btnCross" onclick="toggleCross()">Store ini saja</button>
       <button class="btn-ok btn-sm" onclick="finishCount()">Selesai &amp; Export</button>
     </div>
   </div>
@@ -398,7 +404,7 @@ function all(store){ return new Promise(function(res,rej){ var out=[], r=tx(stor
    BLOK 5 : STATE APLIKASI
    ===================================================================== */
 var S = { unit:null, store:null, user:'', period:'', master:[], items:[], counts:{}, photos:{},
-          grup:'ALL', sec:'ALL', onlyEmpty:false, limit:60 };
+          grup:'ALL', sec:'ALL', mode:0, limit:60, cross:false, allItems:[], metaCross:{}, crossList:[] };
 
 function go(id){
   ['scHome','scImport','scFetch','scPick','scMain','scDone','scBackup'].forEach(function(x){
@@ -510,7 +516,26 @@ function startSession(){
   get('master', S.unit).then(function(m){
     S.period = m.period;
     S.master = m.items;
+    S.allItems = m.items;
     S.items  = m.items.filter(function(i){ return i.store===S.store; });
+    /* Peta per ArtNo untuk pencarian LINTAS STORE.
+       Kalau item terdaftar di store aktif, catatan store aktif yang dipakai;
+       kalau tidak, dipakai catatan store lain dan ditandai sebagai "asing". */
+    S.metaCross = {}; S.crossList = [];
+    m.items.forEach(function(it){
+      var ex = S.metaCross[it.art];
+      if(!ex || (ex.store!==S.store && it.store===S.store)) S.metaCross[it.art] = it;
+    });
+    Object.keys(S.metaCross).forEach(function(a){
+      var it = S.metaCross[a];
+      if(it.store === S.store){ S.crossList.push(it); }
+      else {
+        /* salinan untuk ditampilkan: dicatat atas nama store aktif, qty sistem 0 di sini */
+        S.crossList.push({art:it.art, desc:it.desc, uom:it.uom, price:it.price, section:it.section,
+                          grup:it.grup, partial:it.partial, store:S.store, qtySys:0,
+                          foreign:it.store, sysAtHome:it.qtySys});
+      }
+    });
     return loadCounts();
   }).then(function(){
     document.getElementById('sesLabel').textContent = S.unit + ' — ' + S.store;
@@ -535,7 +560,7 @@ function loadCounts(){
    ===================================================================== */
 function buildChips(){
   var gs={}, ss={};
-  S.items.forEach(function(i){ gs[i.grup]=1; ss[i.section]=1; });
+  basis().forEach(function(i){ gs[i.grup]=1; ss[i.section]=1; });
   var g=['ALL'].concat(Object.keys(gs).sort());
   document.getElementById('chipGrp').innerHTML = g.map(function(x){
     return '<div class="chip'+(S.grup===x?' on':'')+'" onclick="setGrup(\''+x+'\')">'+(x==='ALL'?'Semua':(x==='FG'?'Finish Good':x))+'</div>';
@@ -547,15 +572,26 @@ function buildChips(){
 }
 function setGrup(x){ S.grup=x; S.limit=60; buildChips(); renderList(); }
 function setSec(x){ S.sec=x; S.limit=60; buildChips(); renderList(); }
-function toggleEmpty(){ S.onlyEmpty=!S.onlyEmpty; S.limit=60;
-  document.getElementById('btnOnlyEmpty').textContent = 'Tampilkan: '+(S.onlyEmpty?'Belum diisi':'Semua'); renderList(); }
+function toggleCross(){
+  S.cross = !S.cross; S.limit=60;
+  document.getElementById('btnCross').textContent = S.cross ? 'SEMUA store unit' : 'Store ini saja';
+  buildChips(); renderList();
+}
+var MODES=['Semua','Belum diisi','Ada stok sistem'];
+function toggleEmpty(){
+  S.mode = ((S.mode||0)+1) % 3; S.limit=60;
+  document.getElementById('btnOnlyEmpty').textContent = 'Tampilkan: '+MODES[S.mode];
+  renderList();
+}
 
+function basis(){ return S.cross ? S.crossList : S.items; }
 function filtered(){
   var q=document.getElementById('q').value.trim().toLowerCase();
-  return S.items.filter(function(i){
+  return basis().filter(function(i){
     if(S.grup!=='ALL' && i.grup!==S.grup) return false;
     if(S.sec !=='ALL' && i.section!==S.sec) return false;
-    if(S.onlyEmpty && S.counts[i.art]) return false;
+    if(S.mode===1 && S.counts[i.art]) return false;              // hanya yang belum diisi
+    if(S.mode===2 && !(i.qtySys>0)) return false;                 // hanya yang ada stok di sistem
     if(q && i.art.indexOf(q)<0 && i.desc.toLowerCase().indexOf(q)<0) return false;
     return true;
   });
@@ -566,21 +602,26 @@ function renderList(){
   var f=filtered(), shown=f.slice(0,S.limit), h='';
   for(var k=0;k<shown.length;k++){
     var i=shown[k], c=S.counts[i.art], ph=S.photos[i.art]||[];
+    var adaFoto = (S.photos[i.art]||[]).length>0;
+    var adaNote = !!(c && c.note);
     h+='<div class="item'+(c?' done':'')+'">'+
-       '<div class="art">'+i.art+'</div>'+
+       '<div class="hdr"><span class="art">'+i.art+'</span>'+
+         '<span class="sys'+(i.qtySys>0?' has':'')+'">sistem '+fmt(i.qtySys)+' '+esc(i.uom)+'</span></div>'+
        '<div class="desc">'+esc(i.desc)+'</div>'+
-       '<div class="meta">Satuan: <b>'+esc(i.uom)+'</b> • Sistem: '+fmt(i.qtySys)+
-         ' • Harga: '+fmt(i.price)+' <span class="tag'+(i.grup==='FG'?' fg':'')+'">'+esc(i.section)+'</span>'+
-         (i.partial?' <span class="tag" style="background:#fdecec;color:#c0392b">harga 0 — cek manual</span>':'')+'</div>'+
+       '<div class="meta">'+esc(i.section)+(i.grup==='FG'?' • FG':'')+
+         (i.foreign?' • <b style="color:#b3401a">terdaftar di '+esc(i.foreign)+' (sistem '+fmt(i.sysAtHome)+')</b>':'')+
+         (i.partial?' • <b style="color:#c0392b">harga 0, cek manual</b>':'')+'</div>'+
        '<div class="qtyline">'+
-         '<input type="number" inputmode="decimal" step="any" id="in_'+i.art+'" placeholder="qty fisik">'+
-         '<button class="btn-ok btn-sm" onclick="addQty(\''+i.art+'\')">+ Tambah</button>'+
-         '<button class="btn2 btn-sm" onclick="takePhoto(\''+i.art+'\')">📷</button>'+
+         '<input type="number" inputmode="decimal" step="any" id="in_'+i.art+'" placeholder="qty fisik '+esc(i.uom)+'">'+
+         '<button class="btn-ok btn-sm" onclick="addQty(\''+i.art+'\')">+</button>'+
+         '<button class="btn2 btn-sm" onclick="takePhoto(\''+i.art+'\')">📷'+(adaFoto?'✓':'')+'</button>'+
+         '<button class="btn2 btn-sm" onclick="toggleNote(\''+i.art+'\')">✎'+(adaNote?'✓':'')+'</button>'+
        '</div>'+
-       (c ? '<div class="total">Total: '+fmt(c.qty)+' '+esc(i.uom)+' ('+c.n+'x input) '+
-            '<button class="btn2 btn-sm" onclick="resetQty(\''+i.art+'\')">reset</button></div>' : '')+
-       '<input type="text" placeholder="catatan…" value="'+esc(c&&c.note?c.note:'')+
-         '" onchange="setNote(\''+i.art+'\',this.value)" style="margin-top:6px">'+
+       (c ? '<div class="total">Total: '+fmt(c.qty)+' '+esc(i.uom)+' ('+c.n+'x) '+
+            '<a href="javascript:void(0)" style="font-size:12px;color:#b3401a" onclick="resetQty(\''+i.art+'\')">reset</a></div>' : '')+
+       '<div id="nt_'+i.art+'" class="'+(adaNote?'':'hide')+'">'+
+         '<input type="text" placeholder="catatan…" value="'+esc(c&&c.note?c.note:'')+
+         '" onchange="setNote(\''+i.art+'\',this.value)" style="margin-top:6px;font-size:14px;padding:8px"></div>'+
        '<div class="thumbs" id="th_'+i.art+'">'+thumbHtml(i.art)+'</div>'+
        '</div>';
   }
@@ -589,6 +630,9 @@ function renderList(){
     '<button class="btn2" onclick="S.limit+=100;renderList()">Tampilkan lebih banyak ('+(f.length-S.limit)+' lagi)</button>' :
     (f.length+' item ditampilkan');
   updProgress();
+}
+function toggleNote(art){
+  var el=document.getElementById('nt_'+art); if(el) el.classList.toggle('hide');
 }
 function esc(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;'); }
 function thumbHtml(art){
@@ -671,7 +715,8 @@ function finishCount(){
     '<tr><th>Item terisi</th><td>'+rows.length+' dari '+S.items.length+'</td></tr>'+
     '<tr><th>Nilai SO fisik</th><td><b>Rp '+fmt(Math.round(tot))+'</b></td></tr>'+
     '<tr><th>Item selisih vs sistem</th><td>'+nSelisih+'</td></tr>'+
-    '<tr><th>Item berfoto</th><td>'+nFoto+'</td></tr></table>';
+    '<tr><th>Item berfoto</th><td>'+nFoto+'</td></tr>'+
+    '<tr><th>Item dari store lain</th><td>'+rows.filter(function(r){return r.homeStore;}).length+'</td></tr></table>';
   var tanpaHarga = rows.length && !rows.some(function(r){ return r.price>0; });
   document.getElementById('priceWarn').innerHTML = tanpaHarga ?
     '<div class="warn">Master dari server tidak memuat harga, jadi kolom <b>Price</b> dan <b>Amount</b> '+
@@ -691,11 +736,14 @@ function finishCount(){
 }
 function collect(){
   var out=[];
-  S.items.forEach(function(i){
-    var c=S.counts[i.art]; if(!c) return;
-    out.push({art:i.art, desc:i.desc, uom:i.uom, qty:c.qty, price:i.price,
-      amount:c.qty*i.price, note:c.note||'', foto:(S.photos[i.art]||[]).length?'Y':'N',
-      store:S.store, qtySys:i.qtySys, selisih:Math.round((c.qty-i.qtySys)*10000)/10000});
+  Object.keys(S.counts).forEach(function(art){
+    var c=S.counts[art]; var m=S.metaCross[art]; if(!m) return;
+    var asing = (m.store !== S.store);
+    var sys   = asing ? 0 : m.qtySys;          // di store ini, item asing belum tercatat
+    out.push({art:art, desc:m.desc, uom:m.uom, qty:c.qty, price:m.price||0,
+      amount:c.qty*(m.price||0), note:c.note||'', foto:(S.photos[art]||[]).length?'Y':'N',
+      store:S.store, qtySys:sys, selisih:Math.round((c.qty-sys)*10000)/10000,
+      homeStore: asing ? m.store : ''});
   });
   return out;
 }
@@ -778,14 +826,14 @@ function dl(blob, name){
 /* HEADER WAJIB — kolom A..H persis untuk makro Report Cost Control.
    Kolom I..K tambahan (tidak mengganggu makro yang membaca A..H). */
 var HEADER = ['ArtNo','Description','Unit','Qty Fisik','Price','Amount','Catatan','Ada Foto (Y/N)',
-              'Store','Qty Sistem','Selisih'];
+              'Store','Qty Sistem','Selisih','Terdaftar di Store'];
 function exportXlsx(){
   var rows=collect();
   if(!rows.length){ alert('Belum ada data untuk di-export.'); return; }
   var data=[HEADER];
   rows.forEach(function(r){
     data.push([r.art, r.desc, r.uom, r.qty, r.price, Math.round(r.amount*100)/100,
-               r.note, r.foto, r.store, r.qtySys, r.selisih]);
+               r.note, r.foto, r.store, r.qtySys, r.selisih, r.homeStore||'']);
   });
   dl(buildXlsx(data), 'SO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.xlsx');
 }

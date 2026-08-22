@@ -54,4 +54,9 @@ Kolom A–H tidak boleh berubah karena dibaca oleh makro:
 
 `ArtNo | Description | Unit | Qty Fisik | Price | Amount | Catatan | Ada Foto (Y/N)`
 
-Kolom tambahan setelahnya: `Store | Qty Sistem | Selisih`.
+Kolom tambahan setelahnya: `Store | Qty Sistem | Selisih | Terdaftar di Store`.
+
+`Terdaftar di Store` hanya terisi bila item ditemukan di store yang berbeda dari pendaftarannya
+di sistem. Qty dicatat atas nama store tempat barang secara fisik ditemukan, sehingga item tersebut
+akan tampak *lebih* di store penemu dan *kurang* di store asal — keduanya perlu direkonsiliasi
+oleh Report Cost Control.
