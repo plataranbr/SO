@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
-<title>Stock Opname - Plataran Boga Rasa</title>
+<title>Stock Opname - Plataran Indonesia</title>
 <link rel="manifest" href="manifest.json">
 <meta name="theme-color" content="#123a5e">
 <style>
@@ -79,7 +79,7 @@ th{background:#eef2f7}
 <body>
 
 <header>
-  <div class="ttl">Stock Opname — Plataran Boga Rasa</div>
+  <div class="ttl">Stock Opname — Plataran Indonesia</div>
   <div class="sub" id="hdrSub">Departemen Cost Control</div>
 </header>
 
@@ -217,6 +217,7 @@ th{background:#eef2f7}
     <div id="priceWarn"></div>
     <div class="note">Cantumkan nama, kemudian bubuhkan tanda tangan pada layar apabila diperlukan.
       Tanda tangan akan tercetak pada laporan PDF.</div>
+    <div id="sigWarn"></div>
 
     <label>Petugas</label>
     <input type="text" id="sgPetugas" placeholder="Nama pelaksana perhitungan">
@@ -974,7 +975,14 @@ function delPhoto(art, idx){
    BLOK 9 : RINGKASAN + REKOMENDASI 5 ITEM
    ===================================================================== */
 function finishCount(){
-  var rows=collect(), tot=0, nFoto=0, nSelisih=0;
+  /* Peringatan disampaikan satu kali, sebelum masuk ke layar laporan. */
+  var sisa = belumDihitung().length;
+  if(sisa){
+    if(!confirm('Masih terdapat '+sisa+' item yang tercatat bersaldo pada sistem '+
+      'namun belum dihitung.\n\nLaporan tetap dapat diterbitkan, dan item tersebut akan '+
+      'dicantumkan dengan status Belum dihitung.\n\nLanjutkan ke layar laporan?')) return;
+  }
+  var rows=collect(), belum=sisa, tot=0, nFoto=0, nSelisih=0;
   rows.forEach(function(r){ tot+=r.amount; if(r.foto==='Y') nFoto++; if(Math.abs(r.selisih)>0.0001) nSelisih++; });
   document.getElementById('sumBox').innerHTML =
     '<table><tr><th>Unit / Store</th><td>'+esc(labelUnit(S.unit))+' / '+esc(S.store)+'</td></tr>'+
@@ -983,8 +991,19 @@ function finishCount(){
     '<tr><th>Nilai persediaan fisik</th><td><b>Rp '+fmt(Math.round(tot))+'</b></td></tr>'+
     '<tr><th>Item berselisih dengan sistem</th><td>'+nSelisih+'</td></tr>'+
     '<tr><th>Item dengan bukti foto</th><td>'+nFoto+'</td></tr>'+
-    '<tr><th>Item milik store lain</th><td>'+rows.filter(function(r){return r.homeStore;}).length+'</td></tr></table>';
+    '<tr><th>Item milik store lain</th><td>'+rows.filter(function(r){return r.homeStore;}).length+'</td></tr>'+
+    '<tr><th>Bersaldo di sistem, belum dihitung</th><td>'+
+      (belum? '<b style="color:#b3401a">'+belum+' item</b>':'0')+'</td></tr></table>'+
+    (belum? '<div class="warn" style="margin-top:8px">Terdapat <b>'+belum+' item</b> yang tercatat bersaldo pada sistem '+
+      'namun belum dihitung. Item tersebut tetap dicantumkan pada laporan dengan kolom Qty Fisik dikosongkan dan '+
+      'status <b>Belum dihitung</b>. Aplikasi tidak mengisinya dengan angka nol maupun menyamakannya dengan catatan sistem, '+
+      'sehingga penentuan perlakuannya berada pada Cost Control.</div>':'');
   var sp=document.getElementById('sgPetugas'); if(sp && !sp.value) sp.value = S.user||'';
+  var sw=document.getElementById('sigWarn');
+  if(sw) sw.innerHTML = belum ?
+    '<div class="warn"><b>Perhatian sebelum menandatangani.</b><br>Masih terdapat <b>'+belum+' item</b> '+
+    'yang tercatat bersaldo pada sistem namun belum dihitung. Tanda tangan pada laporan ini berarti '+
+    'pengesahan atas perhitungan yang belum lengkap tersebut.</div>' : '';
   muatSig();
   var tanpaHarga = rows.length && !rows.some(function(r){ return r.price>0; });
   document.getElementById('priceWarn').innerHTML = tanpaHarga ?
@@ -1016,6 +1035,26 @@ function collect(){
   });
   return out;
 }
+/* Item yang tercatat bersaldo di sistem namun BELUM dihitung tetap dimunculkan
+   pada laporan. Qty Fisik sengaja dibiarkan KOSONG, bukan diisi nol maupun
+   disamakan dengan sistem, agar tidak ada angka yang dibuat oleh aplikasi.
+   Penentuan perlakuannya diserahkan kepada Cost Control saat penelaahan. */
+function belumDihitung(){
+  var out=[];
+  S.items.forEach(function(i){
+    if(S.counts[i.art]) return;                 /* sudah dihitung */
+    if(!(i.qtySys>0)) return;                   /* tidak bersaldo di sistem */
+    out.push({art:i.art, desc:i.desc, uom:i.uom, qty:'', price:i.price||0, amount:'',
+      note:'', foto:'N', store:S.store, qtySys:i.qtySys, selisih:'', homeStore:'',
+      status:'Belum dihitung'});
+  });
+  return out;
+}
+function collectLengkap(){
+  var a=collect(); a.forEach(function(r){ r.status='Dihitung'; });
+  return a.concat(belumDihitung());
+}
+
 /* 3 item selisih nilai terbesar + 2 item nilai fisik terbesar */
 function recommend(rows){
   var pakaiHarga = rows.some(function(r){ return r.price>0; });   // master dari server tidak memuat harga
@@ -1095,14 +1134,16 @@ function dl(blob, name){
 /* HEADER WAJIB — kolom A..H persis untuk makro Report Cost Control.
    Kolom I..K tambahan (tidak mengganggu makro yang membaca A..H). */
 var HEADER = ['ArtNo','Description','Unit','Qty Fisik','Price','Amount','Catatan','Ada Foto (Y/N)',
-              'Store','Qty Sistem','Selisih','Terdaftar di Store'];
+              'Store','Qty Sistem','Selisih','Terdaftar di Store','Status'];
 function exportXlsx(){
-  var rows=collect();
+  var rows=collectLengkap();
   if(!rows.length){ alert('Belum terdapat data yang dapat dilaporkan.'); return; }
+  rows.sort(function(a,b){ return a.art<b.art?-1:1; });
   var data=[HEADER];
   rows.forEach(function(r){
-    data.push([r.art, r.desc, r.uom, r.qty, r.price, Math.round(r.amount*100)/100,
-               r.note, r.foto, r.store, r.qtySys, r.selisih, r.homeStore||'']);
+    var amt = (r.amount==='' ? '' : Math.round(r.amount*100)/100);
+    data.push([r.art, r.desc, r.uom, r.qty, r.price, amt,
+               r.note, r.foto, r.store, r.qtySys, r.selisih, r.homeStore||'', r.status||'']);
   });
   dl(buildXlsx(data), 'SO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.xlsx');
 }
@@ -1355,6 +1396,8 @@ function jpegSize(u8){                    /* baca lebar/tinggi dari byte JPEG */
   }
   return {w:800,h:600};
 }
+function fmtq(v){ return (v===''||v===null||v===undefined) ? '-' : fmt(v); }
+function ket(r){ return r.status==='Belum dihitung' ? 'BELUM DIHITUNG' : (r.note||''); }
 function cut(s, max){                      /* potong teks agar muat di kolom */
   s = String(s==null?'':s);
   return s.length>max ? s.substring(0,max-1)+'.' : s;
@@ -1451,15 +1494,15 @@ function buildPdf(rows, meta){
     y-=14;
     rs.forEach(function(r, idx){
       var v = adaAsal
-        ? [String(k*perPage+idx+1), r.art, r.desc, r.uom, fmt(r.qty), fmt(r.qtySys), fmt(r.selisih),
-           r.homeStore||'', r.note||'', r.foto]
-        : [String(k*perPage+idx+1), r.art, r.desc, r.uom, fmt(r.qty), fmt(r.qtySys), fmt(r.selisih),
-           r.note||'', r.foto];
+        ? [String(k*perPage+idx+1), r.art, r.desc, r.uom, fmtq(r.qty), fmt(r.qtySys), fmtq(r.selisih),
+           r.homeStore||'', ket(r), r.foto]
+        : [String(k*perPage+idx+1), r.art, r.desc, r.uom, fmtq(r.qty), fmt(r.qtySys), fmtq(r.selisih),
+           ket(r), r.foto];
       COLS.forEach(function(col, ci){ var t=cellText(col, v[ci]); c += T(t.x, y, FS, t.s); });
       c += LINE(M, y-3.5, W-M, y-3.5, 0.2);
       y-=13;
     });
-    c += T(M, M-6, 7, 'Halaman '+(k+1)+' dari '+nPages+'  |  Diterbitkan melalui aplikasi Stock Opname Plataran Boga Rasa');
+    c += T(M, M-6, 7, 'Halaman '+(k+1)+' dari '+nPages+'  |  Diterbitkan melalui aplikasi Stock Opname Plataran Indonesia');
     return c;
   }
 
@@ -1469,11 +1512,12 @@ function buildPdf(rows, meta){
     c += T(M, y-4, 8, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.periodLabel); y-=8;
     c += LINE(M, y, W-M, y, 1); y-=24;
     var info=[
-      ['Jumlah item yang dihitung', String(rows.length)],
-      ['Item berselisih dengan catatan sistem', String(rows.filter(function(r){return Math.abs(r.selisih)>0.0001;}).length)],
+      ['Jumlah item yang dihitung', String(rows.filter(function(r){return r.status!=='Belum dihitung';}).length)],
+      ['Item berselisih dengan catatan sistem', String(rows.filter(function(r){return r.selisih!=='' && Math.abs(r.selisih)>0.0001;}).length)],
       ['Item milik store lain', String(rows.filter(function(r){return r.homeStore;}).length)],
       ['Item dengan bukti foto', String(rows.filter(function(r){return r.foto==='Y';}).length)],
-      ['Nilai persediaan fisik', 'Rp '+fmt(Math.round(rows.reduce(function(a,r){return a+r.amount;},0)))]
+      ['Bersaldo di sistem, belum dihitung', String(rows.filter(function(r){return r.status==='Belum dihitung';}).length)],
+      ['Nilai persediaan fisik', 'Rp '+fmt(Math.round(rows.reduce(function(a,r){return a+(r.amount||0);},0)))]
     ];
     info.forEach(function(p){
       c += T(M, y, 8, p[0], true); c += T(M+210, y, 8, ': '+p[1]); y-=15;
@@ -1593,7 +1637,7 @@ function previewPdf(){
     '<button class="btn btn2" onclick="window.open(PDFURL,\'_blank\')">Buka Kembali pada Tab Baru</button>';
 }
 function pdfBlob(){
-  var rows=collect();
+  var rows=collectLengkap();
   if(!rows.length){ alert('Belum terdapat data yang dapat dilaporkan.'); return null; }
   rows.sort(function(a,b){ return a.art<b.art?-1:1; });
   var meta={
