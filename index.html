@@ -37,9 +37,9 @@ button{font-size:16px;font-weight:600;border:0;border-radius:8px;padding:14px 16
 .item{background:#fff;border-radius:8px;padding:8px 10px;margin-bottom:6px;box-shadow:0 1px 2px rgba(0,0,0,.07)}
 .item.done{border-left:4px solid #0d8f4f}
 .hdr{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
-.art{font-size:15px;font-weight:800;letter-spacing:.5px;color:#123a5e;font-family:ui-monospace,Menlo,Consolas,monospace}
-.sys{font-size:12px;color:#98a2b3;white-space:nowrap}
-.sys.has{color:#0b6bcb;font-weight:700}
+.art{font-size:13px;font-weight:700;letter-spacing:.5px;color:#5a6779;font-family:ui-monospace,Menlo,Consolas,monospace}
+.sys{font-size:12px;white-space:nowrap;padding:3px 9px;border-radius:12px;background:#eef2f7;color:#9aa4b2}
+.sys.has{background:#dbeafe;color:#0b4f9e;font-weight:800;font-size:14px}
 .desc{font-size:14px;margin:1px 0 2px;line-height:1.25}
 .meta{font-size:11px;color:#8a93a3}
 .qtyline{display:flex;gap:6px;align-items:center;margin-top:6px}
@@ -177,7 +177,7 @@ th{background:#eef2f7}
     <div class="chips" id="chipSec"></div>
     <div class="row" style="margin-top:6px">
       <button class="btn2 btn-sm" id="btnOnlyEmpty" onclick="toggleEmpty()">Tampilkan: Semua</button>
-      <button class="btn2 btn-sm" id="btnCross" onclick="toggleCross()">Store ini saja</button>
+      <button class="btn2 btn-sm" id="btnCross" onclick="toggleCross()">SEMUA store unit</button>
       <button class="btn-ok btn-sm" onclick="finishCount()">Selesai &amp; Export</button>
     </div>
   </div>
@@ -201,6 +201,13 @@ th{background:#eef2f7}
   <div class="card">
     <h2>Export</h2>
     <div id="priceWarn"></div>
+    <label>Nama Petugas SO</label>
+    <input type="text" id="sgPetugas" placeholder="yang menghitung">
+    <label>Nama User / Kepala Store</label>
+    <input type="text" id="sgUser" placeholder="pemilik store">
+    <label>Nama Cost Control</label>
+    <input type="text" id="sgCC" placeholder="pemeriksa">
+    <button class="btn" onclick="exportPdf()">Download PDF (laporan + tanda tangan + foto)</button>
     <button class="btn" onclick="exportXlsx()">Download Excel (.xlsx)</button>
     <button class="btn btn2" onclick="exportPhotos()">Download Semua Foto (.zip)</button>
     <button class="btn btn2" onclick="exportJson()">Backup JSON (sesi ini)</button>
@@ -404,7 +411,7 @@ function all(store){ return new Promise(function(res,rej){ var out=[], r=tx(stor
    BLOK 5 : STATE APLIKASI
    ===================================================================== */
 var S = { unit:null, store:null, user:'', period:'', master:[], items:[], counts:{}, photos:{},
-          grup:'ALL', sec:'ALL', mode:0, limit:60, cross:false, allItems:[], metaCross:{}, crossList:[] };
+          grup:'ALL', sec:'ALL', mode:0, limit:60, cross:true, allItems:[], metaCross:{}, crossList:[] };
 
 function go(id){
   ['scHome','scImport','scFetch','scPick','scMain','scDone','scBackup'].forEach(function(x){
@@ -606,7 +613,7 @@ function renderList(){
     var adaNote = !!(c && c.note);
     h+='<div class="item'+(c?' done':'')+'">'+
        '<div class="hdr"><span class="art">'+i.art+'</span>'+
-         '<span class="sys'+(i.qtySys>0?' has':'')+'">sistem '+fmt(i.qtySys)+' '+esc(i.uom)+'</span></div>'+
+         '<span class="sys'+(i.qtySys>0?' has':'')+'">Sistem '+fmt(i.qtySys)+' '+esc(i.uom)+'</span></div>'+
        '<div class="desc">'+esc(i.desc)+'</div>'+
        '<div class="meta">'+esc(i.section)+(i.grup==='FG'?' • FG':'')+
          (i.foreign?' • <b style="color:#b3401a">terdaftar di '+esc(i.foreign)+' (sistem '+fmt(i.sysAtHome)+')</b>':'')+
@@ -680,12 +687,13 @@ document.getElementById('camIn').addEventListener('change', function(e){
   rd.onload=function(){
     var img=new Image();
     img.onload=function(){
-      var mx=800, w=img.width, h=img.height, r=Math.min(1, mx/Math.max(w,h));
+      var mx=1200, w=img.width, h=img.height, r=Math.min(1, mx/Math.max(w,h));
       var cv=document.createElement('canvas'); cv.width=Math.round(w*r); cv.height=Math.round(h*r);
       cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
-      var data=cv.toDataURL('image/jpeg', 0.6);
+      var data=cv.toDataURL('image/jpeg', 0.78);
       var idx=(S.photos[art]||[]).length;
-      var rec={key:ck(art)+'|'+idx, unit:S.unit, store:S.store, art:art, idx:idx, data:data};
+      var rec={key:ck(art)+'|'+idx, unit:S.unit, store:S.store, art:art, idx:idx, data:data,
+               w:cv.width, h:cv.height};
       (S.photos[art]=S.photos[art]||[]).push(rec);
       put('photos', rec).then(function(){
         var t=document.getElementById('th_'+art); if(t) t.innerHTML=thumbHtml(art);
@@ -717,6 +725,7 @@ function finishCount(){
     '<tr><th>Item selisih vs sistem</th><td>'+nSelisih+'</td></tr>'+
     '<tr><th>Item berfoto</th><td>'+nFoto+'</td></tr>'+
     '<tr><th>Item dari store lain</th><td>'+rows.filter(function(r){return r.homeStore;}).length+'</td></tr></table>';
+  var sp=document.getElementById('sgPetugas'); if(sp && !sp.value) sp.value = S.user||'';
   var tanpaHarga = rows.length && !rows.some(function(r){ return r.price>0; });
   document.getElementById('priceWarn').innerHTML = tanpaHarga ?
     '<div class="warn">Master dari server tidak memuat harga, jadi kolom <b>Price</b> dan <b>Amount</b> '+
@@ -958,6 +967,234 @@ function loadEmbedded(){
 }
 
 /* =====================================================================
+   BLOK 10C : PEMBUAT PDF (tanpa library luar)
+   PDF ditulis manual: teks memakai font standar Helvetica, foto disisipkan
+   apa adanya sebagai JPEG (PDF mendukung JPEG lewat filter DCTDecode),
+   sehingga foto tidak perlu diproses ulang dan file tetap ringan.
+   Isi PDF: 1) tabel hasil hitung  2) halaman tanda tangan  3) lampiran foto
+   ===================================================================== */
+function pdfStr(s){                       /* teks aman untuk PDF */
+  s = String(s==null?'':s);
+  var o='';
+  for(var i=0;i<s.length;i++){
+    var c=s.charCodeAt(i);
+    if(c>255) o+='?';
+    else if(s[i]==='('||s[i]===')'||s[i]==='\\') o+='\\'+s[i];
+    else o+=s[i];
+  }
+  return o;
+}
+function lat1(str){                       /* string -> byte */
+  var u=new Uint8Array(str.length);
+  for(var i=0;i<str.length;i++) u[i]=str.charCodeAt(i)&0xFF;
+  return u;
+}
+function jpegSize(u8){                    /* baca lebar/tinggi dari byte JPEG */
+  var i=2;
+  while(i<u8.length){
+    if(u8[i]!==0xFF){ i++; continue; }
+    var m=u8[i+1];
+    if(m>=0xC0 && m<=0xCF && m!==0xC4 && m!==0xC8 && m!==0xCC){
+      return {h:(u8[i+5]<<8)|u8[i+6], w:(u8[i+7]<<8)|u8[i+8]};
+    }
+    i += 2 + ((u8[i+2]<<8)|u8[i+3]);
+  }
+  return {w:800,h:600};
+}
+function cut(s, max){                      /* potong teks agar muat di kolom */
+  s = String(s==null?'':s);
+  return s.length>max ? s.substring(0,max-1)+'.' : s;
+}
+
+function buildPdf(rows, meta){
+  var W=842, H=595, M=28;                  /* A4 mendatar */
+  var photos=[];                           /* daftar foto yang akan dilampirkan */
+  Object.keys(S.photos).forEach(function(a){
+    S.photos[a].forEach(function(p){
+      var b=b64ToU8(p.data.split(',')[1]);
+      var d=(p.w&&p.h)?{w:p.w,h:p.h}:jpegSize(b);
+      var r=rows.filter(function(x){ return x.art===a; })[0];
+      photos.push({art:a, bytes:b, w:d.w, h:d.h,
+        cap:a+' - '+(r?r.desc:'')+'  |  Qty fisik: '+(r?fmt(r.qty)+' '+r.uom:'-')});
+    });
+  });
+
+  /* --- bagi baris ke halaman --- */
+  var perPage=30, pagesTbl=[];
+  for(var i=0;i<rows.length;i+=perPage) pagesTbl.push(rows.slice(i,i+perPage));
+  if(!pagesTbl.length) pagesTbl.push([]);
+  var perPhotoPage=2, pagesPhoto=[];
+  for(var j=0;j<photos.length;j+=perPhotoPage) pagesPhoto.push(photos.slice(j,j+perPhotoPage));
+  var nPages = pagesTbl.length + 1 + pagesPhoto.length;      /* +1 halaman tanda tangan */
+
+  /* --- penomoran objek --- */
+  var ID_CAT=1, ID_PAGES=2, ID_F=3, ID_FB=4, ID_IMG0=5;
+  var idContent0 = ID_IMG0 + photos.length;
+  function idContent(k){ return idContent0 + k*2; }
+  function idPage(k){ return idContent0 + k*2 + 1; }
+
+  /* --- helper gambar isi halaman --- */
+  function T(x,y,size,txt,bold){ return 'BT /'+(bold?'F2':'F1')+' '+size+' Tf '+x+' '+y+' Td ('+pdfStr(txt)+') Tj ET\n'; }
+  function LINE(x1,y1,x2,y2,w){ return (w||0.5)+' w '+x1+' '+y1+' m '+x2+' '+y2+' l S\n'; }
+  function BOX(x,y,w,h,gray){ return (gray!=null?gray+' g ':'') + x+' '+y+' '+w+' '+h+' re f 0 g\n'; }
+
+  var COLS=[
+    {t:'No',            x:M,     w:22,  a:'l'},
+    {t:'ArtNo',         x:M+24,  w:52,  a:'l'},
+    {t:'Description',   x:M+80,  w:250, a:'l'},
+    {t:'Unit',          x:M+334, w:36,  a:'l'},
+    {t:'Qty Fisik',     x:M+374, w:56,  a:'r'},
+    {t:'Qty Sistem',    x:M+434, w:60,  a:'r'},
+    {t:'Selisih',       x:M+498, w:52,  a:'r'},
+    {t:'Store Asal',    x:M+554, w:96,  a:'l'},
+    {t:'Catatan',       x:M+654, w:130, a:'l'},
+    {t:'Foto',          x:M+788, w:26,  a:'l'}
+  ];
+  function cellText(c, val){
+    var maxch = Math.floor(c.w/4.6);
+    var txt = cut(val, maxch);
+    if(c.a==='r'){
+      var wid = txt.length*4.6;
+      return {x: c.x + c.w - wid, s:txt};
+    }
+    return {x:c.x, s:txt};
+  }
+
+  function halamanTabel(k){
+    var rs=pagesTbl[k], y=H-M, c='';
+    c += T(M, y-4, 13, 'LAPORAN STOCK OPNAME', true); y-=18;
+    c += T(M, y-4, 9, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.period+
+           '   |   Dicetak: '+meta.tanggal); y-=8;
+    c += LINE(M, y, W-M, y, 1); y-=14;
+    c += BOX(M, y-4, W-2*M, 14, 0.90);
+    COLS.forEach(function(col){ var t=cellText(col, col.t); c += T(t.x, y, 8, t.s, true); });
+    y-=16;
+    rs.forEach(function(r, idx){
+      var v=[String(k*perPage+idx+1), r.art, r.desc, r.uom, fmt(r.qty), fmt(r.qtySys), fmt(r.selisih),
+             r.homeStore||'', r.note||'', r.foto];
+      COLS.forEach(function(col, ci){ var t=cellText(col, v[ci]); c += T(t.x, y, 8, t.s); });
+      c += LINE(M, y-4, W-M, y-4, 0.2);
+      y-=14;
+    });
+    c += T(M, M-6, 7, 'Halaman '+(k+1)+' dari '+nPages+'  |  Dicetak dari Webapp Stock Opname');
+    return c;
+  }
+
+  function halamanTtd(){
+    var y=H-M, c='';
+    c += T(M, y-4, 13, 'RINGKASAN & PENGESAHAN', true); y-=18;
+    c += T(M, y-4, 9, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.period); y-=8;
+    c += LINE(M, y, W-M, y, 1); y-=24;
+    var info=[
+      ['Jumlah item dihitung', String(rows.length)],
+      ['Item dengan selisih vs sistem', String(rows.filter(function(r){return Math.abs(r.selisih)>0.0001;}).length)],
+      ['Item ditemukan di store lain', String(rows.filter(function(r){return r.homeStore;}).length)],
+      ['Item dengan foto bukti', String(rows.filter(function(r){return r.foto==='Y';}).length)],
+      ['Total nilai (bila harga tersedia)', 'Rp '+fmt(Math.round(rows.reduce(function(a,r){return a+r.amount;},0)))]
+    ];
+    info.forEach(function(p){
+      c += T(M, y, 9, p[0], true); c += T(M+230, y, 9, ': '+p[1]); y-=16;
+    });
+    y-=30;
+    var kolom=[
+      {t:'Dihitung oleh', n:meta.petugas, k:'Petugas Stock Opname'},
+      {t:'Diketahui oleh', n:meta.user,   k:'User / Kepala Store'},
+      {t:'Diperiksa oleh', n:meta.cc,     k:'Cost Control'}
+    ];
+    var lebar=(W-2*M)/3;
+    kolom.forEach(function(kk, i){
+      var x=M+i*lebar;
+      c += T(x, y, 9, kk.t, true);
+      c += LINE(x, y-62, x+lebar-30, y-62, 0.6);
+      c += T(x, y-74, 9, kk.n ? '( '+kk.n+' )' : '(                                  )');
+      c += T(x, y-86, 8, kk.k);
+      c += T(x, y-100, 8, 'Tanggal: ....... / ....... / ..........');
+    });
+    c += T(M, M-6, 7, 'Halaman '+(pagesTbl.length+1)+' dari '+nPages);
+    return c;
+  }
+
+  function halamanFoto(k){
+    var ps=pagesPhoto[k], c='', y=H-M;
+    c += T(M, y-4, 13, 'LAMPIRAN FOTO BUKTI', true); y-=18;
+    c += T(M, y-4, 9, 'Unit: '+meta.unit+'   |   Store: '+meta.store+'   |   Periode: '+meta.period); y-=8;
+    c += LINE(M, y, W-M, y, 1);
+    ps.forEach(function(p, i){
+      var boxW=(W-2*M-24)/2, boxH=380;
+      var x=M+i*(boxW+24), top=y-20;
+      var sc=Math.min(boxW/p.w, boxH/p.h);
+      var dw=p.w*sc, dh=p.h*sc;
+      var idx=photos.indexOf(p);
+      c += 'q '+dw.toFixed(2)+' 0 0 '+dh.toFixed(2)+' '+x.toFixed(2)+' '+(top-dh).toFixed(2)+
+           ' cm /IM'+idx+' Do Q\n';
+      c += T(x, top-dh-14, 8, cut(p.cap, Math.floor(boxW/4.4)), true);
+    });
+    c += T(M, M-6, 7, 'Halaman '+(pagesTbl.length+2+k)+' dari '+nPages);
+    return c;
+  }
+
+  /* --- rakit objek PDF --- */
+  var objs={};
+  var kids=[]; for(var k=0;k<nPages;k++) kids.push(idPage(k)+' 0 R');
+  objs[ID_CAT]   = lat1('<< /Type /Catalog /Pages '+ID_PAGES+' 0 R >>');
+  objs[ID_PAGES] = lat1('<< /Type /Pages /Kids ['+kids.join(' ')+'] /Count '+nPages+' >>');
+  objs[ID_F]     = lat1('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>');
+  objs[ID_FB]    = lat1('<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>');
+  photos.forEach(function(p, i){
+    var head='<< /Type /XObject /Subtype /Image /Width '+p.w+' /Height '+p.h+
+             ' /ColorSpace /DeviceRGB /BitsPerComponent 8 /Filter /DCTDecode /Length '+p.bytes.length+' >>\nstream\n';
+    var a=lat1(head), b=lat1('\nendstream');
+    var u=new Uint8Array(a.length+p.bytes.length+b.length);
+    u.set(a,0); u.set(p.bytes,a.length); u.set(b,a.length+p.bytes.length);
+    objs[ID_IMG0+i]=u;
+  });
+  for(var k=0;k<nPages;k++){
+    var isi;
+    if(k < pagesTbl.length) isi = halamanTabel(k);
+    else if(k === pagesTbl.length) isi = halamanTtd();
+    else isi = halamanFoto(k - pagesTbl.length - 1);
+    objs[idContent(k)] = lat1('<< /Length '+isi.length+' >>\nstream\n'+isi+'\nendstream');
+    var xo='';
+    if(k > pagesTbl.length){
+      var ps=pagesPhoto[k-pagesTbl.length-1];
+      xo = ' /XObject << ' + ps.map(function(p){ return '/IM'+photos.indexOf(p)+' '+(ID_IMG0+photos.indexOf(p))+' 0 R'; }).join(' ') + ' >>';
+    }
+    objs[idPage(k)] = lat1('<< /Type /Page /Parent '+ID_PAGES+' 0 R /MediaBox [0 0 '+W+' '+H+
+      '] /Resources << /Font << /F1 '+ID_F+' 0 R /F2 '+ID_FB+' 0 R >>'+xo+' >> /Contents '+idContent(k)+' 0 R >>');
+  }
+
+  /* --- susun file + tabel xref --- */
+  var maxId = idPage(nPages-1);
+  var chunks=[lat1('%PDF-1.4\n')], pos=chunks[0].length, off={};
+  for(var id=1; id<=maxId; id++){
+    if(!objs[id]) objs[id]=lat1('<< >>');
+    off[id]=pos;
+    var a=lat1(id+' 0 obj\n'), b=lat1('\nendobj\n');
+    chunks.push(a, objs[id], b);
+    pos += a.length + objs[id].length + b.length;
+  }
+  var xref='xref\n0 '+(maxId+1)+'\n0000000000 65535 f \n';
+  for(var id2=1; id2<=maxId; id2++) xref += ('0000000000'+off[id2]).slice(-10)+' 00000 n \n';
+  xref += 'trailer\n<< /Size '+(maxId+1)+' /Root '+ID_CAT+' 0 R >>\nstartxref\n'+pos+'\n%%EOF';
+  chunks.push(lat1(xref));
+  return new Blob(chunks, {type:'application/pdf'});
+}
+
+function exportPdf(){
+  var rows=collect();
+  if(!rows.length){ alert('Belum ada data untuk di-export.'); return; }
+  rows.sort(function(a,b){ return a.art<b.art?-1:1; });
+  var meta={
+    unit:S.unit, store:S.store, period:S.period,
+    tanggal:new Date().toLocaleDateString('id-ID',{day:'2-digit',month:'long',year:'numeric'}),
+    petugas:(document.getElementById('sgPetugas')||{}).value||S.user||'',
+    user:(document.getElementById('sgUser')||{}).value||'',
+    cc:(document.getElementById('sgCC')||{}).value||''
+  };
+  dl(buildPdf(rows, meta), 'SO_'+S.unit+'_'+safe(S.store)+'_'+S.period+'.pdf');
+}
+
+/* =====================================================================
    BLOK 11 : RESTORE / GABUNG
    ===================================================================== */
 function doRestore(){
@@ -996,7 +1233,8 @@ function refreshStorage(){
     if(navigator.storage && navigator.storage.estimate){
       navigator.storage.estimate().then(function(e){
         box.innerHTML = h+'<br>Kuota browser: ± '+(e.usage/1048576).toFixed(1)+' MB terpakai dari '+
-          (e.quota/1048576).toFixed(0)+' MB.'+((bytes/1048576)>60?'<br><b>⚠️ Foto sudah >60 MB — segera export & backup.</b>':'');
+          (e.quota/1048576).toFixed(0)+' MB.'+'<br>Perkiraan ±0,2 MB per foto (resolusi 1200px, kualitas tinggi).'+
+          ((bytes/1048576)>50?'<br><b>⚠️ Foto sudah >50 MB — segera export PDF/ZIP lalu backup.</b>':'');
       });
     } else box.innerHTML=h;
   });
