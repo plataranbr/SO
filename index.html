@@ -787,6 +787,9 @@ function loadCounts(){
     return all('photos');
   }).then(function(ps){
     ps.forEach(function(p){ if(p.unit===S.unit && p.store===S.store && p.period===S.period){ (S.photos[p.art]=S.photos[p.art]||[]).push(p); } });
+    Object.keys(S.photos).forEach(function(a){
+      S.photos[a].sort(function(x,y){ return (x.urut||0)-(y.urut||0); });
+    });
   });
 }
 
@@ -850,7 +853,8 @@ function renderList(){
          '<input type="number" inputmode="decimal" step="any" id="in_'+i.art+'" placeholder="Jumlah fisik '+esc(i.uom)+'"'+
            ' onkeydown="if(event.key===\'Enter\'){event.preventDefault();addQty(\''+i.art+'\',true);}">'+
          '<button class="btn-ok btn-sm" onclick="addQty(\''+i.art+'\')">+</button>'+
-         '<button class="btn2 btn-sm" onclick="takePhoto(\''+i.art+'\')">📷'+(adaFoto?'✓':'')+'</button>'+
+         '<button class="btn2 btn-sm" onclick="takePhoto(\''+i.art+'\')">📷'+
+           (adaFoto?' '+(S.photos[i.art]||[]).length:'')+'</button>'+
          '<button class="btn2 btn-sm" onclick="toggleNote(\''+i.art+'\')">✎'+(adaNote?'✓':'')+'</button>'+
        '</div>'+
        '<div class="total" id="tot_'+i.art+'">'+totalHtml(i.art)+'</div>'+
@@ -929,8 +933,11 @@ function setNote(art, val){
 
 /* --- foto: kompres 800px / JPEG 0.6, maksimal 2 per item --- */
 var camArt=null;
+var MAX_FOTO = 6;          /* batas foto per item; item yang tersimpan di beberapa
+                              lokasi dapat didokumentasikan satu per satu */
 function takePhoto(art){
-  if((S.photos[art]||[]).length>=2){ alert('Setiap item dibatasi maksimal dua foto.'); return; }
+  if((S.photos[art]||[]).length>=MAX_FOTO){
+    alert('Setiap item dibatasi maksimal '+MAX_FOTO+' foto.'); return; }
   camArt=art; var el=document.getElementById('camIn'); el.value=''; el.click();
 }
 document.getElementById('camIn').addEventListener('change', function(e){
@@ -943,9 +950,11 @@ document.getElementById('camIn').addEventListener('change', function(e){
       var cv=document.createElement('canvas'); cv.width=Math.round(w*r); cv.height=Math.round(h*r);
       cv.getContext('2d').drawImage(img,0,0,cv.width,cv.height);
       var data=cv.toDataURL('image/jpeg', 0.78);
-      var idx=(S.photos[art]||[]).length;
-      var rec={key:ck(art)+'|'+idx, unit:S.unit, period:S.period, store:S.store, art:art, idx:idx, data:data,
-               w:cv.width, h:cv.height};
+      /* Kunci dibuat unik agar foto tidak saling menimpa apabila ada foto yang
+         dihapus di tengah lalu ditambahkan foto baru. */
+      var uid = Date.now().toString(36)+Math.random().toString(36).substr(2,5);
+      var rec={key:ck(art)+'|'+uid, unit:S.unit, period:S.period, store:S.store, art:art,
+               urut:(S.photos[art]||[]).length, data:data, w:cv.width, h:cv.height};
       (S.photos[art]=S.photos[art]||[]).push(rec);
       put('photos', rec).then(function(){ gambarUlangThumb(art); });
     };
@@ -958,6 +967,9 @@ document.getElementById('camIn').addEventListener('change', function(e){
 function gambarUlangThumb(art){
   var els=document.querySelectorAll('[data-th="'+art+'"]');
   for(var i=0;i<els.length;i++) els[i].innerHTML=thumbHtml(art);
+  var jml=(S.photos[art]||[]).length;
+  var tb=document.querySelectorAll('[onclick="takePhoto(\''+art+'\')"]');
+  for(var t=0;t<tb.length;t++) if(tb[t].className.indexOf('btn2')>=0) tb[t].innerHTML='📷'+(jml?' '+jml:'');
   var btn=document.querySelectorAll('[data-fotobtn="'+art+'"]');
   for(var j=0;j<btn.length;j++){
     btn[j].outerHTML = (S.photos[art]||[]).length ? '<div class="total">Foto telah tersedia</div>' : btn[j].outerHTML;
@@ -1406,12 +1418,14 @@ function buildPdf(rows, meta){
   var W=595, H=842, M=28;                  /* A4 tegak (portrait) */
   var photos=[];                           /* daftar foto yang akan dilampirkan */
   Object.keys(S.photos).forEach(function(a){
-    S.photos[a].forEach(function(p){
+    var n=S.photos[a].length;
+    S.photos[a].forEach(function(p, i){
       var b=b64ToU8(p.data.split(',')[1]);
       var d=(p.w&&p.h)?{w:p.w,h:p.h}:jpegSize(b);
       var r=rows.filter(function(x){ return x.art===a; })[0];
       photos.push({art:a, bytes:b, w:d.w, h:d.h,
-        cap:a+' - '+(r?r.desc:'')+'  |  Qty fisik: '+(r?fmt(r.qty)+' '+r.uom:'-')});
+        cap:a+' - '+(r?r.desc:'')+'  |  Qty fisik: '+(r?fmt(r.qty)+' '+r.uom:'-')+
+            (n>1 ? '  |  Foto '+(i+1)+' dari '+n : '')});
     });
   });
 
@@ -1688,7 +1702,7 @@ function refreshStorage(){
     if(navigator.storage && navigator.storage.estimate){
       navigator.storage.estimate().then(function(e){
         box.innerHTML = h+'<br>Kuota peramban: ± '+(e.usage/1048576).toFixed(1)+' MB terpakai dari '+
-          (e.quota/1048576).toFixed(0)+' MB.'+'<br>Perkiraan ±0,2 MB per foto pada resolusi 1200 piksel.'+
+          (e.quota/1048576).toFixed(0)+' MB.'+'<br>Perkiraan ±0,2 MB per foto pada resolusi 1200 piksel. Setiap item dapat memuat hingga '+MAX_FOTO+' foto.'+
           ((bytes/1048576)>50?'<br><b>Perhatian: berkas foto telah melampaui 50 MB. Segera terbitkan laporan dan lakukan pencadangan.</b>':'');
       });
     } else box.innerHTML=h;

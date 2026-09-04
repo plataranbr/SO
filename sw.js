@@ -8,7 +8,7 @@
    (v1 -> v2 -> v3 ...). Kalau tidak dinaikkan, alat petugas akan
    tetap memakai versi lama yang tersimpan.
    ============================================================ */
-var CACHE = 'so-plataran-v17';
+var CACHE = 'so-plataran-v18';
 var ASSETS = ['./', './index.html', './manifest.json'];
 
 /* Saat pertama dipasang: simpan file app ke cache */
